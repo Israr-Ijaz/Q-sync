@@ -33,10 +33,10 @@ interface Patient {
 
 /** ── Active queue — 4 mock patients ── */
 const patients: Patient[] = [
-  { id: "p1", token: "#A-011", name: "Fatima Ali",    age: 38, waitMinutes: 32, status: "Consultation", complaint: "Persistent migraine" },
-  { id: "p2", token: "#A-012", name: "Ahmed Khan",    age: 45, waitMinutes: 15, status: "Waiting",      complaint: "Chest discomfort"    },
-  { id: "p3", token: "#A-013", name: "Ayesha Siddiqui", age: 29, waitMinutes: 8, status: "Waiting",   complaint: "Fever & body aches"   },
-  { id: "p4", token: "#A-014", name: "Usman Tariq",   age: 61, waitMinutes: 3,  status: "Waiting",      complaint: "Diabetes follow-up"   },
+  { id: "p1", token: "#A-011", name: "Fatima Ali", age: 38, waitMinutes: 32, status: "Consultation", complaint: "Persistent migraine" },
+  { id: "p2", token: "#A-012", name: "Ahmed Khan", age: 45, waitMinutes: 15, status: "Waiting", complaint: "Chest discomfort" },
+  { id: "p3", token: "#A-013", name: "Ayesha Siddiqui", age: 29, waitMinutes: 8, status: "Waiting", complaint: "Fever & body aches" },
+  { id: "p4", token: "#A-014", name: "Usman Tariq", age: 61, waitMinutes: 3, status: "Waiting", complaint: "Diabetes follow-up" },
 ];
 
 // Empty queue — uncomment to preview the empty state:
@@ -148,8 +148,8 @@ function StatusBadge({ status }: { status: PatientStatus }) {
           status === "Waiting"
             ? "bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"
             : status === "Consultation"
-            ? "bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)]"
-            : "bg-slate-600"
+              ? "bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)]"
+              : "bg-slate-600"
         )}
       />
       {label}

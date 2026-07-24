@@ -31,10 +31,10 @@ interface NavItem {
 // Navigation config
 // ---------------------------------------------------------------------------
 const NAV_ITEMS: NavItem[] = [
-  { label: "Queue",         href: "/dashboard/queue",         icon: Users       },
-  { label: "Prescriptions", href: "/dashboard/prescriptions", icon: FileText    },
-  { label: "Patients",      href: "/dashboard/patients",      icon: FolderHeart },
-  { label: "Settings",      href: "/dashboard/settings",      icon: Settings    },
+  { label: "Queue", href: "/dashboard/queue", icon: Users },
+  { label: "Prescriptions", href: "/dashboard/prescriptions", icon: FileText },
+  { label: "Patients", href: "/dashboard/patients", icon: FolderHeart },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 // ---------------------------------------------------------------------------
@@ -79,14 +79,14 @@ function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; on
         "focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900",
         active
           ? [
-              "bg-gradient-to-r from-emerald-500/15 to-teal-500/10",
-              "border border-emerald-500/20",
-              "text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_12px_rgba(16,185,129,0.08)]",
-            ]
+            "bg-gradient-to-r from-emerald-500/15 to-teal-500/10",
+            "border border-emerald-500/20",
+            "text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_12px_rgba(16,185,129,0.08)]",
+          ]
           : [
-              "text-slate-400 border border-transparent",
-              "hover:bg-slate-800/60 hover:text-slate-200 hover:border-slate-700/50",
-            ]
+            "text-slate-400 border border-transparent",
+            "hover:bg-slate-800/60 hover:text-slate-200 hover:border-slate-700/50",
+          ]
       )}
     >
       {/* Icon glow container */}
@@ -339,11 +339,11 @@ export default function DashboardLayout({
 // Page breadcrumb — derives label from current pathname
 // ---------------------------------------------------------------------------
 const ROUTE_LABELS: Record<string, string> = {
-  "/dashboard":              "Dashboard",
-  "/dashboard/queue":        "OPD Queue",
-  "/dashboard/prescriptions":"Prescriptions",
-  "/dashboard/patients":     "Patients",
-  "/dashboard/settings":     "Settings",
+  "/dashboard": "Dashboard",
+  "/dashboard/queue": "OPD Queue",
+  "/dashboard/prescriptions": "Prescriptions",
+  "/dashboard/patients": "Patients",
+  "/dashboard/settings": "Settings",
 };
 
 function PageBreadcrumb({ pathname }: { pathname: string }) {
