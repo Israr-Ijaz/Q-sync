@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
  *  3. If an authenticated user hits /auth/login, send them to the dashboard
  *     home instead of showing the login page again.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Start with a plain pass-through response so we can mutate its cookies.
   let response = NextResponse.next({ request });
 
@@ -74,16 +74,15 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // This matcher tells Next.js exactly which routes to run the proxy on.
   matcher: [
     /*
-     * Match all request paths EXCEPT the ones starting with:
-     * - _next/static  (Next.js static assets)
-     * - _next/image   (Next.js image optimisation)
-     * - favicon.ico, sitemap.xml, robots.txt (browser meta files)
-     *
-     * This pattern is taken directly from the Next.js + Supabase SSR docs
-     * and ensures the middleware runs on every page route and API route.
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - auth (our public login/register pages)
      */
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth).*)',
   ],
-};
+}
