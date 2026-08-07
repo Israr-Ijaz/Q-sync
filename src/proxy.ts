@@ -12,6 +12,15 @@ import { NextRequest, NextResponse } from 'next/server';
  *     home instead of showing the login page again.
  */
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── 0. BYPASS FOR WEBHOOKS ──────────────────────────────────────────────
+  // Allow Meta's WhatsApp bots to reach the webhook immediately without 
+  // waiting for Supabase to check cookies or ping the database.
+  if (pathname.startsWith('/api/webhooks/whatsapp')) {
+    return NextResponse.next();
+  }
+
   // Start with a plain pass-through response so we can mutate its cookies.
   let response = NextResponse.next({ request });
 
@@ -49,8 +58,6 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   // ── 1. Protect /dashboard/** ────────────────────────────────────────────
   if (pathname.startsWith('/dashboard')) {
