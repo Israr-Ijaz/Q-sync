@@ -64,14 +64,14 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       // No valid session — redirect to login, preserving the intended URL
       // so we can redirect back after a successful login if needed.
-      const loginUrl = new URL('/auth/login', request.url);
+      const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirected_from', pathname);
       return NextResponse.redirect(loginUrl);
     }
   }
 
   // ── 2. Skip login page for already-authenticated users ──────────────────
-  if (pathname.startsWith('/auth/login') && user) {
+  if (pathname === '/login' && user) {
     // They are already logged in — send them to the dashboard root.
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
@@ -81,16 +81,15 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // This matcher tells Next.js exactly which routes to run the proxy on.
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - auth (our public login/register pages)
+     * - login (our new public login page)
      * - api/webhooks/whatsapp (Meta's webhook verification)
      */
-    '/((?!_next/static|_next/image|favicon.ico|auth|api/webhooks/whatsapp).*)',
+    '/((?!_next/static|_next/image|favicon.ico|login|api/webhooks/whatsapp).*)',
   ],
 }

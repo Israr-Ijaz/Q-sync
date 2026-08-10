@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Stethoscope, ShieldCheck, ArrowRight, Lock, Mail, Loader2 } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,9 @@ interface LoginFormState {
 // Page
 // ---------------------------------------------------------------------------
 export default function LoginPage() {
+  const router = useRouter();
+  const supabase = useRef(createClient()).current;
+
   const [form, setForm] = useState<LoginFormState>({
     email: "",
     password: "",
@@ -34,14 +39,45 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!form.email || !form.password) {
+    if (!form.email.trim() || !form.password.trim()) {
       setForm((prev) => ({ ...prev, error: "Please fill in all fields." }));
       return;
     }
     setForm((prev) => ({ ...prev, loading: true, error: null }));
-    // TODO: replace with real auth call (e.g. Supabase signInWithPassword)
-    await new Promise((r) => setTimeout(r, 1500));
-    setForm((prev) => ({ ...prev, loading: false }));
+
+    try {
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email: form.email.trim(),
+          password: form.password,
+        });
+
+      if (authError || !authData.user) {
+        setForm((prev) => ({
+          ...prev,
+          loading: false,
+          error: authError?.message ?? "Authentication failed. Please try again.",
+        }));
+        return;
+      }
+
+      // Fetch role to route doctor vs receptionist
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", authData.user.id)
+        .maybeSingle();
+
+      const role = (profile?.role as string | undefined) ?? "receptionist";
+      router.push(role === "doctor" ? "/dashboard/doctor" : "/dashboard/receptionist");
+    } catch (err) {
+      console.error("[Login] Unexpected error:", err);
+      setForm((prev) => ({
+        ...prev,
+        loading: false,
+        error: "An unexpected error occurred. Please try again.",
+      }));
+    }
   };
 
   return (

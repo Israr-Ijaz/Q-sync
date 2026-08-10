@@ -1,332 +1,325 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import {
-  QrCode,
-  Monitor,
   Stethoscope,
-  FlaskConical,
-  ArrowRight,
   Menu,
-  Activity,
-  Globe
+  X,
+  ArrowRight,
+  Clock,
+  FileText,
+  Users,
+  TrendingUp,
+  Shield,
+  Zap,
+  CheckCircle2,
+  AlertCircle,
+  Star,
+  Check,
 } from "lucide-react";
 
-// --- COMPONENTS ---
+// --- 1. PREMIUM NAVBAR COMPONENT ---
+const Navbar = () => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-const PhoneMockup = () => {
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const navLinks = [
+    { name: "Features", href: "#features" },
+    { name: "Solutions", href: "#solutions" },
+    { name: "Pricing", href: "#pricing" },
+  ];
+
   return (
-    <div className="relative w-[300px] h-[600px] bg-slate-900 rounded-[44px] border-[8px] border-slate-800 shadow-2xl overflow-hidden mx-auto">
-      {/* Hardware Notch */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-800 rounded-b-2xl z-30 flex items-center justify-center gap-2">
-        <div className="w-12 h-1.5 bg-slate-950 rounded-full"></div>
-        <div className="w-2 h-2 bg-slate-950 rounded-full"></div>
-      </div>
+    <>
+      <motion.header
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
+          ? "bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-black/50 py-3"
+          : "bg-transparent py-5"
+          }`}
+      >
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="flex items-center justify-center w-8 h-8 bg-white rounded-[10px] group-hover:scale-105 transition-transform duration-300">
+              <Stethoscope className="w-5 h-5 text-black" strokeWidth={2.5} />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-white">QSync</span>
+          </Link>
 
-      {/* Status Bar */}
-      <div className="absolute top-0 w-full h-12 bg-[#075E54] z-20 flex justify-between items-center px-6 pt-4 pb-1 text-[10px] text-white font-medium">
-        <span>10:42</span>
-        <div className="flex gap-1.5 items-center">
-          <Globe className="w-3 h-3" />
-          <div className="w-4 h-2.5 border border-white rounded-[2px] relative">
-            <div className="absolute inset-[1px] bg-white w-2/3"></div>
+          <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
+                className="text-sm font-medium text-zinc-400 hover:text-white transition-colors duration-200"
+              >
+                {link.name}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="hidden md:flex items-center gap-4">
+            <Link href="/login">
+              <button className="px-5 py-2 text-sm font-medium text-white border border-white/15 rounded-full hover:bg-white/5 hover:border-white/30 transition-all duration-200">
+                Sign In
+              </button>
+            </Link>
+            <Link href="/dashboard/receptionist">
+              <button className="px-5 py-2 text-sm font-medium bg-white text-black rounded-full hover:bg-zinc-200 hover:scale-105 transition-all duration-200 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                Get Started
+              </button>
+            </Link>
           </div>
+
+          <button
+            className="md:hidden p-2 -mr-2 text-zinc-400 hover:text-white"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
-      </div>
+      </motion.header>
 
-      {/* WhatsApp Header */}
-      <div className="absolute top-12 w-full h-16 bg-[#075E54] z-20 flex items-center px-4 gap-3 shadow-md border-b border-[#064e46]">
-        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center overflow-hidden border border-white/10">
-          <Activity className="w-6 h-6 text-[#25D366]" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-white font-semibold text-sm">Nexus Clinic OPD</span>
-          <span className="text-emerald-200 text-xs flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-[#25D366] rounded-full animate-pulse shadow-[0_0_5px_#25D366]"></span>
-            Online
-          </span>
-        </div>
-      </div>
-
-      {/* Chat Background Pattern */}
-      <div className="absolute inset-0 top-28 bg-[#0b141a] p-4 flex flex-col gap-4 overflow-hidden">
-
-        {/* User Message (Right Aligned) */}
-        <motion.div
-          initial={{ opacity: 0, x: 20, scale: 0.9 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ delay: 0.5, duration: 0.4 }}
-          className="self-end bg-[#005c4b] text-white text-sm px-4 py-2 rounded-2xl rounded-tr-sm shadow-sm max-w-[80%]"
-        >
-          JOIN CLINIC
-        </motion.div>
-
-        {/* System Reply (Left Aligned) */}
-        <motion.div
-          initial={{ opacity: 0, x: -20, scale: 0.9 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ delay: 1.2, duration: 0.4 }}
-          className="self-start bg-[#202c33] text-slate-200 text-sm px-4 py-3 rounded-2xl rounded-tl-sm shadow-lg max-w-[95%] border border-white/5"
-        >
-          <div className="font-semibold text-[#25D366] mb-1 flex items-center gap-1">
-            <span className="text-lg">🎟️</span> Token Issued!
-          </div>
-          <div className="space-y-1 mt-2 text-[13px]">
-            <p>Token Number: <strong className="text-lg text-white">#42</strong></p>
-            <p className="text-slate-400">Est. Wait Time: ~15 mins</p>
-            <p className="text-slate-400">Current Serving: #38</p>
-          </div>
-
-          {/* Mock Web Link Button */}
-          <div className="mt-3 pt-3 border-t border-white/10 text-center text-[#34b7f1] font-medium flex items-center justify-center gap-2 hover:text-[#53c6f7] transition-colors cursor-pointer">
-            <Globe className="w-4 h-4" /> Track Live on Web
-          </div>
-        </motion.div>
-
-      </div>
-    </div>
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed inset-0 z-40 bg-[#0a0a0a] pt-24 px-6 md:hidden"
+          >
+            <div className="flex flex-col gap-6">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  className="text-2xl font-semibold text-zinc-400 hover:text-white"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {link.name}
+                </Link>
+              ))}
+              <div className="h-px w-full bg-white/10 my-4" />
+              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                <button className="w-full py-4 text-lg font-medium text-white border border-white/15 rounded-xl hover:bg-white/5">
+                  Sign In
+                </button>
+              </Link>
+              <Link href="/dashboard/receptionist" onClick={() => setIsMobileMenuOpen(false)}>
+                <button className="w-full py-4 text-lg font-medium bg-white text-black rounded-xl hover:bg-zinc-200">
+                  Get Started
+                </button>
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
-export default function QSyncHomePage() {
+// --- 2. MAIN PAGE EXPORT ---
+export default function QSyncPremiumPage() {
+  const fadeUpVariants: Variants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } },
+  };
+
+  const staggerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-[#25D366]/30 overflow-hidden">
+    <main className="min-h-screen bg-[#0a0a0a] text-zinc-200 font-sans selection:bg-white/20">
+      <Navbar />
 
-      {/* Ambient Background Glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[500px] bg-[#25D366]/10 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+      {/* --- HERO SECTION --- */}
+      <section className="relative pt-32 pb-20 sm:pt-48 sm:pb-32 overflow-hidden flex flex-col items-center justify-center min-h-[90vh]">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-white/[0.03] blur-[120px] rounded-full pointer-events-none" />
 
-      {/* 1. Sticky Glassmorphism Header */}
-      <header className="sticky top-0 z-50 bg-slate-950/70 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold tracking-tight text-white flex items-center gap-1">
-              QSync
-              <span className="w-2.5 h-2.5 bg-[#25D366] rounded-full animate-pulse mt-1 shadow-[0_0_10px_rgba(37,211,102,0.8)]"></span>
-            </span>
-          </div>
-
-          <nav className="hidden md:flex items-center gap-8 font-medium text-slate-400">
-            <Link href="#features" className="hover:text-white transition-colors">Features</Link>
-            <Link href="#how-it-works" className="hover:text-white transition-colors">How it Works</Link>
-            <Link href="/login" className="text-[#25D366] hover:text-[#20bd5a] transition-colors flex items-center gap-1">
-              Staff Portal <ArrowRight className="w-4 h-4" />
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <button className="hidden md:block px-6 py-2.5 bg-white/10 text-white font-medium rounded-full hover:bg-white/20 border border-white/10 transition-all shadow-lg backdrop-blur-sm">
-              Book Demo
-            </button>
-            <button className="md:hidden p-2 text-white">
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* 2. Hero Section */}
-      <section className="relative pt-20 pb-32">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-
-          {/* Left Column */}
-          <div className="max-w-2xl relative z-10">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#25D366]/10 text-[#25D366] font-semibold text-sm mb-6 border border-[#25D366]/20 backdrop-blur-md"
-            >
-              ⚡ No App Download Required for Patients
+        <div className="relative max-w-5xl mx-auto px-6 text-center z-10">
+          <motion.div initial="hidden" animate="visible" variants={staggerVariants}>
+            <motion.div variants={fadeUpVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-zinc-300 mb-8 backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              We raised $5M in Series A funding
             </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6 text-white"
-            >
-              End the Waiting Room Chaos with <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#25D366] to-emerald-400">WhatsApp & Web</span> Queues.
+            <motion.h1 variants={fadeUpVariants} className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-6 tracking-tight text-balance leading-[1.1]">
+              Smart Queue Management for Modern Medical Clinics
             </motion.h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-lg text-slate-400 mb-10 leading-relaxed font-light"
-            >
-              Patients scan a QR code, get real-time token alerts on their phone, and track their turn live on the web or your clinic TVs. Step in exactly on time.
+            <motion.p variants={fadeUpVariants} className="text-lg sm:text-xl text-zinc-400 mb-10 max-w-2xl mx-auto text-balance leading-relaxed">
+              Streamline patient flow, digitize prescriptions, and reduce wait times with QSync's intelligent healthcare platform built for clinics that care.
             </motion.p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4"
-            >
-              <button className="px-8 py-4 bg-[#25D366] text-slate-950 font-bold rounded-full hover:bg-[#20bd5a] transition-all shadow-[0_0_30px_rgba(37,211,102,0.2)] hover:shadow-[0_0_40px_rgba(37,211,102,0.4)] flex items-center justify-center gap-2">
-                Start Free Trial
-              </button>
-              <button className="px-8 py-4 bg-white/5 text-white font-medium rounded-full hover:bg-white/10 border border-white/10 transition-all flex items-center justify-center gap-2 backdrop-blur-sm">
-                See How it Works
+            <motion.div variants={fadeUpVariants} className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
+              <Link href="/dashboard/receptionist">
+                <button className="px-8 py-3.5 bg-white text-black font-semibold rounded-full hover:scale-105 transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2">
+                  Get a Demo <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+              <button className="px-8 py-3.5 bg-transparent text-white font-medium rounded-full border border-white/20 hover:bg-white/5 transition-all duration-300">
+                Watch Overview
               </button>
             </motion.div>
-          </div>
-
-          {/* Right Column: CSS Phone Mockup */}
-          <motion.div
-            animate={{ y: [-10, 10, -10] }}
-            transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
-            className="hidden lg:block relative z-10"
-          >
-            <PhoneMockup />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[550px] bg-[#25D366]/20 blur-[100px] rounded-[44px] -z-10"></div>
           </motion.div>
         </div>
       </section>
 
-      {/* 3. Social Proof Banner */}
-      <div className="bg-slate-900/50 py-6 border-y border-white/5 backdrop-blur-sm">
-        <p className="text-center text-slate-500 font-medium text-sm tracking-widest uppercase">
-          Designed for top OPDs. Built for high-speed clinic workflows.
-        </p>
-      </div>
-
-      {/* 4. Features Section (Bento Grid) */}
-      <section id="features" className="py-24 relative z-10">
+      {/* --- FEATURES GRID (Bento Style) --- */}
+      <section id="features" className="py-24 relative border-t border-white/5 bg-[#0a0a0a]">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="mb-16">
-            <h2 className="text-3xl font-bold text-white mb-4">A complete digital operating system.</h2>
-            <p className="text-slate-400 text-lg max-w-2xl font-light">Everything you need to manage patient flow, whether they are on WhatsApp or their mobile browser.</p>
-          </div>
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerVariants} className="text-center mb-20">
+            <motion.p variants={fadeUpVariants} className="text-zinc-500 font-semibold text-xs tracking-widest uppercase mb-3">Powerful Features</motion.p>
+            <motion.h2 variants={fadeUpVariants} className="text-3xl sm:text-4xl font-bold text-white">Everything Your Clinic Needs</motion.h2>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-            {/* Card 1: Large */}
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 20 }}
-              viewport={{ once: true }}
-              className="md:col-span-2 bg-slate-900/40 rounded-[32px] p-10 border border-white/10 relative overflow-hidden group hover:border-[#25D366]/50 transition-colors backdrop-blur-md"
-            >
-              <div className="w-14 h-14 bg-slate-800 rounded-2xl shadow-inner border border-white/5 flex items-center justify-center mb-6">
-                <QrCode className="w-7 h-7 text-[#25D366]" />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-3">Instant Token Generation</h3>
-              <p className="text-slate-400 max-w-md leading-relaxed font-light">
-                Turn your waiting room into a digital lobby. The instant QR-to-WhatsApp flow means zero friction for patients and an automatically managed queue for your front desk.
-              </p>
-            </motion.div>
-
-            {/* Card 2: Medium (Web Tracker) */}
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 20 }}
-              transition={{ delay: 0.1 }}
-              viewport={{ once: true }}
-              className="bg-slate-900/40 rounded-[32px] p-10 border border-white/10 relative overflow-hidden backdrop-blur-md group hover:border-[#34b7f1]/50 transition-colors"
-            >
-              <div className="w-14 h-14 bg-slate-800 rounded-2xl border border-white/5 flex items-center justify-center mb-6">
-                <Monitor className="w-7 h-7 text-[#34b7f1]" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-white">Live Web & TV Tracker</h3>
-              <p className="text-slate-400 leading-relaxed text-sm font-light">
-                Not a WhatsApp user? No problem. Patients get a secure web link to track their queue live, while your waiting room TV displays the current serving numbers.
-              </p>
-            </motion.div>
-
-            {/* Card 3: Medium */}
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 20 }}
-              transition={{ delay: 0.2 }}
-              viewport={{ once: true }}
-              className="bg-slate-900/40 rounded-[32px] p-10 border border-white/10 backdrop-blur-md group hover:border-emerald-500/50 transition-colors"
-            >
-              <div className="w-14 h-14 bg-slate-800 rounded-2xl shadow-inner border border-white/5 flex items-center justify-center mb-6">
-                <Stethoscope className="w-7 h-7 text-emerald-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">1-Click Digital Rx</h3>
-              <p className="text-slate-400 leading-relaxed text-sm font-light">
-                A lightning-fast prescription dashboard designed specifically for high-volume doctors. Less typing, faster patient turnover.
-              </p>
-            </motion.div>
-
-            {/* Card 4: Wide */}
-            <motion.div
-              whileInView={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 0, y: 20 }}
-              transition={{ delay: 0.3 }}
-              viewport={{ once: true }}
-              className="md:col-span-2 bg-[#075E54]/20 rounded-[32px] p-10 border border-[#25D366]/20 flex flex-col md:flex-row md:items-center justify-between gap-8 backdrop-blur-md"
-            >
-              <div>
-                <div className="w-14 h-14 bg-slate-900/80 rounded-2xl shadow-inner border border-[#25D366]/20 flex items-center justify-center mb-6">
-                  <FlaskConical className="w-7 h-7 text-[#25D366]" />
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerVariants} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: Clock, title: "Real-Time Queue Management", desc: "Monitor patient queues in real-time, reduce wait times, and optimize clinic workflows with intelligent scheduling." },
+              { icon: FileText, title: "Digital Prescriptions", desc: "Generate, manage, and send prescriptions digitally. Seamless integration with pharmacy systems for immediate fulfillment." },
+              { icon: Users, title: "Patient Management", desc: "Centralized patient records, medical history, and appointment tracking for better care coordination." },
+              { icon: TrendingUp, title: "Advanced Analytics", desc: "Gain actionable insights into clinic performance, patient flow patterns, and operational metrics." },
+              { icon: Shield, title: "HIPAA Compliant", desc: "Enterprise-grade security with end-to-end encryption and full compliance with healthcare regulations." },
+              { icon: Zap, title: "Lightning Fast", desc: "Sub-second response times and 99.99% uptime guarantee for uninterrupted patient care." }
+            ].map((feature, i) => (
+              <motion.div key={i} variants={fadeUpVariants} whileHover={{ y: -5 }} className="p-8 rounded-2xl border border-white/5 bg-zinc-900/20 hover:bg-zinc-900/50 transition-colors">
+                <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 border border-white/10">
+                  <feature.icon className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Lab & Pharmacy Network</h3>
-                <p className="text-slate-300 max-w-md leading-relaxed font-light">
-                  Automated dispatching straight to partner laboratories and pharmacies with a single click. Keep the entire care cycle connected.
-                </p>
+                <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">{feature.desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* --- SOLUTIONS SECTION --- */}
+      <section id="solutions" className="py-24 relative border-t border-white/5">
+        <div className="max-w-5xl mx-auto px-6">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUpVariants} className="text-center mb-16">
+            <p className="text-zinc-500 font-semibold text-xs tracking-widest uppercase mb-3">Problems We Solve</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">Healthcare challenges, solved instantly</h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {[
+              { problem: "Long patient wait times", solution: "Real-time queue optimization reduces wait times by up to 40%" },
+              { problem: "Manual prescription errors", solution: "Digital prescriptions eliminate manual errors and speed up fulfillment" },
+              { problem: "Fragmented patient data", solution: "Centralized patient records accessible instantly across your clinic" },
+              { problem: "Difficulty tracking metrics", solution: "Comprehensive dashboards with actionable insights in real-time" }
+            ].map((item, i) => (
+              <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUpVariants} className="p-8 rounded-2xl border border-white/5 bg-zinc-900/20">
+                <div className="flex gap-4 mb-6">
+                  <div className="w-8 h-8 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0"><AlertCircle className="w-4 h-4" /></div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Problem</p>
+                    <p className="text-zinc-300 text-sm">{item.problem}</p>
+                  </div>
+                </div>
+                <div className="h-px w-full bg-white/5 my-6" />
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center shrink-0"><CheckCircle2 className="w-4 h-4" /></div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Solution</p>
+                    <p className="text-zinc-300 text-sm">{item.solution}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* --- PRICING SECTION --- */}
+      <section id="pricing" className="py-24 relative border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, transparent pricing</h2>
+            <p className="text-zinc-400">Choose the perfect plan for your clinic. No hidden fees.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {/* Starter */}
+            <div className="p-8 rounded-3xl border border-white/10 bg-zinc-900/20">
+              <h3 className="text-xl font-bold text-white mb-2">Starter</h3>
+              <p className="text-zinc-400 text-sm mb-6">Perfect for small clinics just getting started.</p>
+              <div className="mb-6"><span className="text-4xl font-bold text-white">$299</span><span className="text-zinc-500">/mo</span></div>
+              <button className="w-full py-3 rounded-full border border-white/20 text-white font-medium hover:bg-white/5 transition-colors mb-8">Get Started</button>
+              <div className="space-y-4">
+                {["Up to 5 providers", "Queue management", "Basic analytics", "Email support"].map((f, i) => (
+                  <div key={i} className="flex gap-3 text-sm text-zinc-400"><Check className="w-4 h-4 text-white" />{f}</div>
+                ))}
               </div>
-            </motion.div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* 5. How It Works */}
-      <section id="how-it-works" className="py-24 bg-slate-900/20 border-t border-white/5 relative z-10">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-bold text-white mb-16">Simple 3-Step Flow</h2>
-
-          <div className="flex flex-col md:flex-row justify-center items-center gap-12 md:gap-8">
-            {/* Step 1 */}
-            <div className="flex flex-col items-center max-w-xs relative">
-              <div className="w-16 h-16 bg-slate-800 border-2 border-white/10 rounded-full flex items-center justify-center text-xl font-bold text-white mb-6 z-10">1</div>
-              <h4 className="text-xl font-bold text-white mb-2">Scan QR</h4>
-              <p className="text-slate-400 font-light">Patient scans the clinic standee using their phone camera.</p>
-              <div className="hidden md:block absolute top-8 left-full w-full h-[2px] bg-gradient-to-r from-white/10 to-transparent -z-0 -translate-x-8"></div>
             </div>
 
-            {/* Step 2 */}
-            <div className="flex flex-col items-center max-w-xs relative">
-              <div className="w-16 h-16 bg-[#25D366] text-slate-950 rounded-full flex items-center justify-center text-xl font-bold mb-6 z-10 shadow-[0_0_20px_rgba(37,211,102,0.3)]">2</div>
-              <h4 className="text-xl font-bold text-white mb-2">Get Token</h4>
-              <p className="text-slate-400 font-light">Receive a live token via WhatsApp or jump straight to the Web Tracker.</p>
-              <div className="hidden md:block absolute top-8 left-full w-full h-[2px] bg-gradient-to-r from-white/10 to-transparent -z-0 -translate-x-8"></div>
+            {/* Professional (Highlighted) */}
+            <div className="p-8 rounded-3xl border border-white/20 bg-white/[0.03] relative transform md:-translate-y-4 shadow-2xl">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-black text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</div>
+              <h3 className="text-xl font-bold text-white mb-2">Professional</h3>
+              <p className="text-zinc-400 text-sm mb-6">Ideal for growing clinics with advanced needs.</p>
+              <div className="mb-6"><span className="text-4xl font-bold text-white">$799</span><span className="text-zinc-500">/mo</span></div>
+              <button className="w-full py-3 rounded-full bg-white text-black font-semibold hover:bg-zinc-200 transition-colors mb-8">Start Free Trial</button>
+              <div className="space-y-4">
+                {["Unlimited providers", "Full queue management", "Digital prescriptions", "Advanced analytics", "Priority support"].map((f, i) => (
+                  <div key={i} className="flex gap-3 text-sm text-white"><Check className="w-4 h-4 text-white" />{f}</div>
+                ))}
+              </div>
             </div>
 
-            {/* Step 3 */}
-            <div className="flex flex-col items-center max-w-xs relative">
-              <div className="w-16 h-16 bg-slate-800 text-white rounded-full flex items-center justify-center text-xl font-bold mb-6 z-10 border-2 border-white/10">3</div>
-              <h4 className="text-xl font-bold text-white mb-2">Walk In</h4>
-              <p className="text-slate-400 font-light">Patient tracks the TV or their phone and enters exactly when it is their turn.</p>
+            {/* Enterprise */}
+            <div className="p-8 rounded-3xl border border-white/10 bg-zinc-900/20">
+              <h3 className="text-xl font-bold text-white mb-2">Enterprise</h3>
+              <p className="text-zinc-400 text-sm mb-6">Custom solutions for large healthcare networks.</p>
+              <div className="mb-6"><span className="text-4xl font-bold text-white">Custom</span></div>
+              <button className="w-full py-3 rounded-full border border-white/20 text-white font-medium hover:bg-white/5 transition-colors mb-8">Contact Sales</button>
+              <div className="space-y-4">
+                {["Everything in Professional", "Multi-location management", "White-label options", "Dedicated account manager"].map((f, i) => (
+                  <div key={i} className="flex gap-3 text-sm text-zinc-400"><Check className="w-4 h-4 text-white" />{f}</div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 6. High-Conversion Footer */}
-      <footer className="bg-slate-950 pt-20 pb-10 border-t-2 border-[#25D366]/50 relative z-10">
+      {/* --- FOOTER --- */}
+      <footer className="border-t border-white/10 pt-20 pb-10 bg-[#0a0a0a]">
         <div className="max-w-4xl mx-auto px-6 text-center mb-20">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-8">Ready to digitize your clinic?</h2>
-          <button className="px-10 py-5 bg-[#25D366] text-slate-950 text-lg font-bold rounded-full hover:bg-[#20bd5a] transition-all shadow-[0_0_30px_rgba(37,211,102,0.2)] hover:shadow-[0_0_50px_rgba(37,211,102,0.4)]">
-            Book a Demo Today
-          </button>
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to transform your clinic?</h2>
+          <p className="text-zinc-400 mb-8 max-w-2xl mx-auto text-lg">Join 500+ healthcare providers who are streamlining operations and improving patient experience.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/dashboard/receptionist">
+              <button className="px-8 py-4 bg-white text-black font-semibold rounded-full hover:scale-105 transition-all shadow-lg w-full sm:w-auto">Start Free Trial</button>
+            </Link>
+            <button className="px-8 py-4 bg-transparent border border-white/20 text-white font-medium rounded-full hover:bg-white/5 transition-all w-full sm:w-auto">Schedule Demo</button>
+          </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 pt-10 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-500 text-sm">
+        <div className="max-w-7xl mx-auto px-6 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-zinc-500 text-sm">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white">QSync</span> © {new Date().getFullYear()} All rights reserved.
+            <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center"><Stethoscope className="w-3 h-3 text-black" /></div>
+            <span className="font-bold text-white">QSync</span> © {new Date().getFullYear()}
           </div>
           <div className="flex gap-6">
-            <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link href="#" className="hover:text-white transition-colors">Contact Support</Link>
+            <Link href="#" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="#" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="#" className="hover:text-white transition-colors">Contact</Link>
           </div>
         </div>
       </footer>
-
-    </div>
+    </main>
   );
 }
