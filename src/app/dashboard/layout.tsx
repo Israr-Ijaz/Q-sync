@@ -15,6 +15,8 @@ import {
   X,
   LogOut,
   User,
+  QrCode,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,9 +33,11 @@ interface NavItem {
 // Navigation config
 // ---------------------------------------------------------------------------
 const NAV_ITEMS: NavItem[] = [
+  { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard }, // <--- New!
   { label: "Queue", href: "/dashboard/queue", icon: Users },
   { label: "Prescriptions", href: "/dashboard/prescriptions", icon: FileText },
   { label: "Patients", href: "/dashboard/patients", icon: FolderHeart },
+  { label: "QR Standee", href: "/dashboard/admin/qr-builder", icon: QrCode }, // <--- New!
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

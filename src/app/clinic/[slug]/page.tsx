@@ -1,15 +1,42 @@
 'use client';
 
-import { use, useState, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { use, useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
   Phone,
   ArrowRight,
   MapPin,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 // IMPORTANT: Make sure this import path matches where you saved your Server Action!
 import { joinQueue } from '@/actions/patient';
+
+// ─── Haversine Distance Formula ────────────────────────────────────────────
+function haversineDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6_371_000; // Earth radius in metres
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ─── Clinic Geofence Config ────────────────────────────────────────────────
+const CLINIC_GEO = {
+  lat: 31.5204,
+  lng: 74.3587,
+  radiusMeters: 200,
+} as const;
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type PageProps = {
@@ -134,7 +161,45 @@ function FloatingInput({
 // ─── Main Page ──────────────────────────────────────────────────────────────
 export default function ClinicPage({ params }: PageProps) {
   const { slug } = use(params);
-  const clinic = CLINIC_DATA[slug] ?? { ...DEFAULT_CLINIC, name: decodeURIComponent(slug.replace(/-/g, ' ')).replace(/\b\w/g, (c) => c.toUpperCase()) + ' Clinic', tagline: DEFAULT_CLINIC.tagline, city: DEFAULT_CLINIC.city, accent: DEFAULT_CLINIC.accent };
+  const clinic = CLINIC_DATA[slug] ?? {
+    ...DEFAULT_CLINIC,
+    name:
+      decodeURIComponent(slug.replace(/-/g, ' ')).replace(
+        /\b\w/g,
+        (c) => c.toUpperCase(),
+      ) + ' Clinic',
+    tagline: DEFAULT_CLINIC.tagline,
+    city: DEFAULT_CLINIC.city,
+    accent: DEFAULT_CLINIC.accent,
+  };
+
+  // ── Geofence state ───────────────────────────────────────────────────────
+  const [geoStatus, setGeoStatus] = useState<'verifying' | 'allowed' | 'denied'>('verifying');
+  const [distance, setDistance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGeoStatus('denied');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const dist = haversineDistanceMeters(
+          pos.coords.latitude,
+          pos.coords.longitude,
+          CLINIC_GEO.lat,
+          CLINIC_GEO.lng,
+        );
+        setDistance(Math.round(dist));
+        setGeoStatus(dist <= CLINIC_GEO.radiusMeters ? 'allowed' : 'denied');
+      },
+      () => {
+        // User denied or position unavailable
+        setGeoStatus('denied');
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  }, []);
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -160,191 +225,348 @@ export default function ClinicPage({ params }: PageProps) {
     }
   };
 
-  return (
-    <div
-      className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center px-4 py-12"
-      style={{ background: '#0a0a0f' }}
-    >
-      {/* ── Ambient background blobs ── */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <motion.div
-          animate={{ scale: [1, 1.08, 1], opacity: [0.18, 0.28, 0.18] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full blur-3xl"
-          style={{ background: `${accent}` }}
-        />
-        <motion.div
-          animate={{ scale: [1, 1.12, 1], opacity: [0.12, 0.22, 0.12] }}
-          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full blur-3xl"
-          style={{ background: '#1e1b4b' }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(circle at 20% 50%, ${accent}18 0%, transparent 50%), radial-gradient(circle at 80% 20%, #3b82f618 0%, transparent 50%)`,
-          }}
-        />
-      </div>
+  // ── Shared ambient blobs (reused across all screens) ─────────────────────
+  const AmbientBg = (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <motion.div
+        animate={{ scale: [1, 1.08, 1], opacity: [0.18, 0.28, 0.18] }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full blur-3xl"
+        style={{ background: accent }}
+      />
+      <motion.div
+        animate={{ scale: [1, 1.12, 1], opacity: [0.12, 0.22, 0.12] }}
+        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+        className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full blur-3xl"
+        style={{ background: '#1e1b4b' }}
+      />
+    </div>
+  );
 
-      {/* ── Perimeter edge glow ── */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <motion.div
-          animate={{ opacity: [0.4, 0.7, 0.4] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute inset-x-0 top-0 h-px"
-          style={{ background: `linear-gradient(to right, transparent, ${accent}, transparent)` }}
-        />
-        <motion.div
-          animate={{ opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          className="absolute inset-x-0 bottom-0 h-px"
-          style={{ background: `linear-gradient(to right, transparent, ${accent}88, transparent)` }}
-        />
-      </div>
-
-      {/* ─── FORM VIEW ─── */}
-      <motion.form
-        action={handleFormSubmit}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: 0.4 }}
-        className="relative z-10 w-full max-w-[420px] flex flex-col items-center gap-8"
+  // ── VERIFYING screen ──────────────────────────────────────────────────────
+  if (geoStatus === 'verifying') {
+    return (
+      <div
+        className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center px-4"
+        style={{ background: '#0a0a0f' }}
       >
-        {/* Header */}
+        {AmbientBg}
         <motion.div
-          initial={{ opacity: 0, y: -24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center"
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 flex flex-col items-center gap-6 text-center"
         >
-          {/* Clinic badge */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+          >
+            <Loader2 size={48} className="text-indigo-400" />
+          </motion.div>
+          <div>
+            <p className="text-xl font-semibold text-white">Verifying Location…</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              Please allow location access when prompted.
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ── DENIED screen ─────────────────────────────────────────────────────────
+  if (geoStatus === 'denied') {
+    return (
+      <div
+        className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center px-4 py-12"
+        style={{ background: '#0a0a0f' }}
+      >
+        {AmbientBg}
+
+        {/* Red perimeter glow */}
+        <div className="pointer-events-none fixed inset-0 z-0">
+          <motion.div
+            animate={{ opacity: [0.4, 0.8, 0.4] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute inset-x-0 top-0 h-px"
+            style={{ background: 'linear-gradient(to right, transparent, #ef4444, transparent)' }}
+          />
+          <motion.div
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+            className="absolute inset-x-0 bottom-0 h-px"
+            style={{ background: 'linear-gradient(to right, transparent, #ef444488, transparent)' }}
+          />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 w-full max-w-[400px] flex flex-col items-center gap-7 text-center"
+        >
+          {/* Icon badge */}
           <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5 text-xs font-semibold tracking-wider uppercase"
+            className="flex items-center justify-center w-20 h-20 rounded-full"
             style={{
-              background: `${accent}22`,
-              border: `1px solid ${accent}44`,
-              color: accent,
+              background: 'rgba(239,68,68,0.12)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              boxShadow: '0 0 40px rgba(239,68,68,0.2)',
             }}
           >
-            <MapPin size={11} />
-            {clinic.city}
+            <ShieldAlert size={38} className="text-red-400" />
           </div>
 
-          <h1 className="text-4xl font-bold text-white leading-tight tracking-tight">
-            Welcome to{' '}
-            <span
-              className="bg-clip-text text-transparent"
-              style={{ backgroundImage: `linear-gradient(135deg, ${accent}, #a78bfa)` }}
-            >
-              {clinic.name}
-            </span>
-          </h1>
-          <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
-            {clinic.tagline}
-            <br />
-            Enter your details below to join the queue.
-          </p>
-        </motion.div>
-
-        {/* Glassmorphic card */}
-        <motion.div
-          initial={{ opacity: 0, y: 48, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 0.28, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full rounded-3xl p-7 flex flex-col gap-5"
-          style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.10)',
-            backdropFilter: 'blur(32px)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
-          }}
-        >
-          <FloatingInput
-            id="patient-name"
-            name="patientName"
-            label="Full Name"
-            value={name}
-            onChange={setName}
-            icon={User}
-            disabled={isSubmitting}
-            accentColor={accent}
-          />
-          <FloatingInput
-            id="patient-phone"
-            name="phoneNumber"
-            label="Phone Number"
-            type="tel"
-            value={phone}
-            onChange={setPhone}
-            icon={Phone}
-            disabled={isSubmitting}
-            accentColor={accent}
-          />
-
-          {/* Submit button */}
-          <motion.button
-            ref={buttonRef}
-            type="submit"
-            disabled={!name.trim() || !phone.trim() || isSubmitting}
-            whileTap={{ scale: 0.96 }}
-            className="relative mt-2 w-full rounded-2xl py-4 text-base font-semibold text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
+          {/* Message card */}
+          <div
+            className="w-full rounded-3xl p-7 flex flex-col gap-4"
             style={{
-              background: `linear-gradient(135deg, ${accent}, #7c3aed)`,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(239,68,68,0.18)',
+              backdropFilter: 'blur(32px)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
             }}
           >
-            {/* Continuous edge glow on button */}
-            <motion.div
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute inset-0 rounded-2xl pointer-events-none"
-              style={{
-                boxShadow: `0 0 28px ${accent}88, 0 0 60px ${accent}44`,
-              }}
-            />
-            {/* Shimmer sweep */}
-            <motion.div
-              animate={{ x: ['-110%', '110%'] }}
-              transition={{ duration: 2.8, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.25) 50%, transparent 65%)',
-              }}
-            />
+            <h1 className="text-2xl font-bold text-white leading-snug">
+              You are{' '}
+              <span className="text-red-400">too far away</span>
+            </h1>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              You must be physically inside the clinic to generate a token.
+            </p>
 
-            <span className="relative flex items-center justify-center gap-2.5">
-              {isSubmitting ? (
-                <>
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
-                    className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white"
-                  />
-                  Generating Token…
-                </>
-              ) : (
-                <>
-                  Generate Token
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </span>
-          </motion.button>
+            {distance !== null && (
+              <div
+                className="inline-flex items-center justify-center gap-2 self-center rounded-full px-4 py-1.5 text-xs font-semibold"
+                style={{
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.25)',
+                  color: '#fca5a5',
+                }}
+              >
+                <MapPin size={11} />
+                {distance.toLocaleString()} m away — max {CLINIC_GEO.radiusMeters} m allowed
+              </div>
+            )}
+          </div>
+
+          {/* Dev-only bypass (stripped from production builds) */}
+          {process.env.NODE_ENV !== 'production' && (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setGeoStatus('allowed')}
+              className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold text-emerald-300 transition-colors"
+              style={{
+                background: 'rgba(16,185,129,0.1)',
+                border: '1px solid rgba(16,185,129,0.25)',
+              }}
+            >
+              <ShieldCheck size={15} />
+              [DEV] Bypass Geofence
+            </motion.button>
+          )}
         </motion.div>
+      </div>
+    );
+  }
 
-        {/* Footer */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="text-xs text-zinc-600 text-center"
+  // ── ALLOWED — existing form UI ────────────────────────────────────────────
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="allowed"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.35 }}
+      >
+        <div
+          className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center px-4 py-12"
+          style={{ background: '#0a0a0f' }}
         >
-          Powered by{' '}
-          <span className="text-zinc-400 font-medium">QSync</span>
-          {' '}· Your place in queue is reserved instantly.
-        </motion.p>
-      </motion.form>
-    </div>
+          {/* ── Ambient background blobs ── */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <motion.div
+              animate={{ scale: [1, 1.08, 1], opacity: [0.18, 0.28, 0.18] }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full blur-3xl"
+              style={{ background: `${accent}` }}
+            />
+            <motion.div
+              animate={{ scale: [1, 1.12, 1], opacity: [0.12, 0.22, 0.12] }}
+              transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+              className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full blur-3xl"
+              style={{ background: '#1e1b4b' }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `radial-gradient(circle at 20% 50%, ${accent}18 0%, transparent 50%), radial-gradient(circle at 80% 20%, #3b82f618 0%, transparent 50%)`,
+              }}
+            />
+          </div>
+
+          {/* ── Perimeter edge glow ── */}
+          <div className="pointer-events-none fixed inset-0 z-0">
+            <motion.div
+              animate={{ opacity: [0.4, 0.7, 0.4] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute inset-x-0 top-0 h-px"
+              style={{ background: `linear-gradient(to right, transparent, ${accent}, transparent)` }}
+            />
+            <motion.div
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+              className="absolute inset-x-0 bottom-0 h-px"
+              style={{ background: `linear-gradient(to right, transparent, ${accent}88, transparent)` }}
+            />
+          </div>
+
+          {/* ─── FORM VIEW ─── */}
+          <motion.form
+            action={handleFormSubmit}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.4 }}
+            className="relative z-10 w-full max-w-[420px] flex flex-col items-center gap-8"
+          >
+            {/* Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center"
+            >
+              {/* Clinic badge */}
+              <div
+                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5 text-xs font-semibold tracking-wider uppercase"
+                style={{
+                  background: `${accent}22`,
+                  border: `1px solid ${accent}44`,
+                  color: accent,
+                }}
+              >
+                <MapPin size={11} />
+                {clinic.city}
+              </div>
+
+              <h1 className="text-4xl font-bold text-white leading-tight tracking-tight">
+                Welcome to{' '}
+                <span
+                  className="bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(135deg, ${accent}, #a78bfa)` }}
+                >
+                  {clinic.name}
+                </span>
+              </h1>
+              <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
+                {clinic.tagline}
+                <br />
+                Enter your details below to join the queue.
+              </p>
+            </motion.div>
+
+            {/* Glassmorphic card */}
+            <motion.div
+              initial={{ opacity: 0, y: 48, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 0.28, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full rounded-3xl p-7 flex flex-col gap-5"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                backdropFilter: 'blur(32px)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
+              }}
+            >
+              <FloatingInput
+                id="patient-name"
+                name="patientName"
+                label="Full Name"
+                value={name}
+                onChange={setName}
+                icon={User}
+                disabled={isSubmitting}
+                accentColor={accent}
+              />
+              <FloatingInput
+                id="patient-phone"
+                name="phoneNumber"
+                label="Phone Number"
+                type="tel"
+                value={phone}
+                onChange={setPhone}
+                icon={Phone}
+                disabled={isSubmitting}
+                accentColor={accent}
+              />
+
+              {/* Submit button */}
+              <motion.button
+                ref={buttonRef}
+                type="submit"
+                disabled={!name.trim() || !phone.trim() || isSubmitting}
+                whileTap={{ scale: 0.96 }}
+                className="relative mt-2 w-full rounded-2xl py-4 text-base font-semibold text-white overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: `linear-gradient(135deg, ${accent}, #7c3aed)`,
+                }}
+              >
+                {/* Continuous edge glow on button */}
+                <motion.div
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                  className="absolute inset-0 rounded-2xl pointer-events-none"
+                  style={{
+                    boxShadow: `0 0 28px ${accent}88, 0 0 60px ${accent}44`,
+                  }}
+                />
+                {/* Shimmer sweep */}
+                <motion.div
+                  animate={{ x: ['-110%', '110%'] }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background:
+                      'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.25) 50%, transparent 65%)',
+                  }}
+                />
+
+                <span className="relative flex items-center justify-center gap-2.5">
+                  {isSubmitting ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+                        className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white"
+                      />
+                      Generating Token…
+                    </>
+                  ) : (
+                    <>
+                      Generate Token
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </span>
+              </motion.button>
+            </motion.div>
+
+            {/* Footer */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="text-xs text-zinc-600 text-center"
+            >
+              Powered by{' '}
+              <span className="text-zinc-400 font-medium">QSync</span>
+              {' '}· Your place in queue is reserved instantly.
+            </motion.p>
+          </motion.form>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
