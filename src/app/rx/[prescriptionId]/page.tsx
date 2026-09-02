@@ -1,26 +1,8 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { PrintButton } from './print-button';
-import {
-  Stethoscope,
-  ShieldCheck,
-  Pill,
-  CalendarClock,
-  CheckCircle2,
-  Clock,
-  Hash,
-  AlertTriangle,
-} from 'lucide-react';
+import PremiumPrescription, { type MedItem } from '@/components/PremiumPrescription';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-interface MedItem {
-  id?: string;
-  name: string;
-  dosage: string;
-  duration: string;
-  instructions: string;
-}
-
 interface Prescription {
   id: string;
   patient_name: string;
@@ -29,94 +11,6 @@ interface Prescription {
   notes: string | null;
   created_at: string;
   clinic_id: string | null;
-}
-
-
-// ─── Dosage Ring ───────────────────────────────────────────────────────────────
-// Renders Morning-Afternoon-Night pills from a "1-0-1" string
-function DosageDisplay({ dosage }: { dosage: string }) {
-  const parts = dosage.split('-');
-  const labels = ['M', 'A', 'N'];
-  const fullLabels = ['Morning', 'Afternoon', 'Night'];
-
-  // If it doesn't match M-A-N format, just show it as text
-  if (parts.length !== 3) {
-    return (
-      <span className="inline-flex items-center rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1 text-sm font-bold text-emerald-700">
-        {dosage}
-      </span>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1.5" title={parts.map((v, i) => `${fullLabels[i]}: ${v === '1' ? '1 tablet' : 'Skip'}`).join(' · ')}>
-      {parts.map((val, i) => (
-        <span
-          key={labels[i]}
-          className={`inline-flex flex-col items-center justify-center rounded-lg border px-2.5 py-1 text-center ${
-            val === '1'
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-              : 'border-slate-200 bg-slate-50 text-slate-400'
-          }`}
-        >
-          <span className="text-[10px] font-semibold uppercase tracking-wider">{labels[i]}</span>
-          <span className={`text-sm font-bold leading-none ${val === '1' ? 'text-emerald-600' : 'text-slate-300'}`}>
-            {val}
-          </span>
-        </span>
-      ))}
-      <span className="ml-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-        {dosage}
-      </span>
-    </div>
-  );
-}
-
-// ─── Med Card ─────────────────────────────────────────────────────────────────
-function MedCard({ med, index }: { med: MedItem; index: number }) {
-  return (
-    <div className="flex gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm print:border-slate-300 print:shadow-none">
-      {/* Index badge */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-sm font-black text-white shadow-sm">
-        {index + 1}
-      </div>
-
-      <div className="flex flex-1 flex-col gap-2.5 min-w-0">
-        {/* Medicine name */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Pill className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />
-            <h3 className="text-[15px] font-bold tracking-tight text-slate-900 leading-tight">
-              {med.name}
-            </h3>
-          </div>
-          <span className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 print:border-slate-300">
-            <Clock className="inline h-2.5 w-2.5 mr-0.5 -mt-px" strokeWidth={2} />
-            {med.duration}
-          </span>
-        </div>
-
-        {/* Dosage */}
-        <DosageDisplay dosage={med.dosage} />
-
-        {/* Instructions */}
-        {med.instructions && (
-          <p className="text-xs font-medium text-slate-500 bg-slate-50 rounded-lg px-3 py-1.5 border border-slate-100 print:bg-transparent print:border-slate-200">
-            ✦ {med.instructions}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Section Heading ──────────────────────────────────────────────────────────
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-3 print:border-slate-300">
-      <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">{children}</h2>
-    </div>
-  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -158,221 +52,61 @@ export default async function RxPage({
   const advice: string[] = Array.isArray(rx.advice) ? rx.advice : [];
   const notes: string = rx.notes ?? '';
 
-  // ── Format date ──
-  const issueDate = new Date(rx.created_at).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
-  const issueTime = new Date(rx.created_at).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  // ── Short ID for display ──
-  const shortId = rx.id.split('-')[0].toUpperCase();
-
   return (
     <>
-      {/* Global print styles injected inline */}
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            @media print {
-              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-              body { background: white !important; }
-              @page { margin: 0.75in; size: A4; }
-            }
-          `,
-        }}
-      />
+      {/* ── Page Shell — soft gray background so doc pops ── */}
+      {/* Global print reset is in globals.css (@media print) */}
+      <div className="min-h-screen bg-slate-100 py-10 px-4 print:bg-white print:p-0 print:py-0">
 
-      {/* ── Page Shell ── */}
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-emerald-50/30 to-slate-100 py-8 px-4 print:bg-white print:p-0 print:py-0">
-        {/* ── Prescription Card ── */}
-        <main
-          id="rx-card"
-          className="mx-auto max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200/80 print:shadow-none print:border-none print:rounded-none print:max-w-full"
-        >
-          {/* ── Clinic Header ── */}
-          <header className="relative overflow-hidden bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 px-6 py-7 print:from-emerald-700 print:to-teal-600">
-            {/* Subtle mesh overlay */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-10 print:hidden"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 10% 50%, rgba(255,255,255,0.4) 0%, transparent 50%), radial-gradient(circle at 90% 20%, rgba(255,255,255,0.2) 0%, transparent 50%)',
-              }}
-            />
+        {/* ── Premium Prescription Document ── */}
+        <PremiumPrescription
+          patientName={rx.patient_name}
+          medications={medications}
+          advice={advice}
+          notes={notes}
+          createdAt={rx.created_at}
+          prescriptionId={rx.id}
+        />
 
-            <div className="relative flex items-start justify-between gap-4">
-              {/* Left: Branding */}
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-sm">
-                    <Stethoscope className="h-5 w-5 text-white" strokeWidth={1.75} />
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-bold tracking-tight text-white leading-tight">
-                      QSync Digital Clinic
-                    </h1>
-                    <p className="text-emerald-100 text-xs font-medium">
-                      Digital Healthcare Platform
-                    </p>
-                  </div>
-                </div>
+        {/* ── Viral "Powered by" Footer Banner (screen only, never printed) ── */}
+        <div className="print-hide mx-auto mt-8 w-full max-w-[794px]">
+          <hr className="mb-6 border-slate-300" />
 
-                {/* Verified badge */}
-                <div className="inline-flex w-fit items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1.5 backdrop-blur-sm">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-200" strokeWidth={2} />
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-white">
-                    Official Verified E-Prescription
-                  </span>
-                </div>
+          <a
+            href="https://wa.me/923000000000?text=Hi%2C%20I%20am%20a%20doctor%20interested%20in%20Opedox"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Get Opedox for your clinic — WhatsApp enquiry"
+            className="group block rounded-2xl border border-emerald-200/70 bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-5 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md hover:border-emerald-300 active:scale-[0.99]"
+          >
+            <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+              {/* Left copy */}
+              <div className="flex flex-col gap-1">
+                <p className="text-xs font-medium text-slate-400">
+                  Queue &amp; Prescription Powered by Opedox.
+                </p>
+                <p className="text-base font-bold text-emerald-700 group-hover:text-emerald-600 transition-colors leading-snug">
+                  🚀 Are you a doctor? Get Opedox for your clinic.
+                </p>
               </div>
 
-              {/* Right: Print button */}
-              <PrintButton />
+              {/* Right CTA pill */}
+              <span className="mt-2 inline-flex shrink-0 items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm group-hover:bg-emerald-500 transition-colors sm:mt-0">
+                Chat on WhatsApp
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+                </svg>
+              </span>
             </div>
-          </header>
+          </a>
 
-          {/* ── Patient Info Bar ── */}
-          <div className="border-b border-slate-200/80 bg-slate-50/70 px-6 py-4 print:bg-slate-50 print:border-slate-300">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {/* Patient name */}
-              <div className="col-span-2 sm:col-span-1 flex flex-col gap-0.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Patient Name
-                </span>
-                <span className="text-base font-bold text-slate-900 leading-tight">
-                  {rx.patient_name}
-                </span>
-              </div>
-
-              {/* Issue date */}
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Issue Date
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <CalendarClock className="h-3.5 w-3.5 shrink-0 text-emerald-600" strokeWidth={2} />
-                  <span className="text-sm font-semibold text-slate-700">
-                    {issueDate}
-                  </span>
-                </div>
-              </div>
-
-              {/* Issue time */}
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Issued At
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 shrink-0 text-emerald-600" strokeWidth={2} />
-                  <span className="text-sm font-semibold text-slate-700">{issueTime}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Card Body ── */}
-          <div className="flex flex-col gap-7 px-6 py-7 print:px-0">
-
-            {/* ── Section: Medications ── */}
-            {medications.length > 0 && (
-              <section aria-labelledby="rx-medications-heading">
-                <div className="mb-4">
-                  <SectionHeading>
-                    <span id="rx-medications-heading">
-                      Prescribed Medications ({medications.length})
-                    </span>
-                  </SectionHeading>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  {medications.map((med, i) => (
-                    <MedCard key={med.id ?? `med-${i}`} med={med} index={i} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Empty medications graceful fallback */}
-            {medications.length === 0 && (
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 py-10 text-center">
-                <Pill className="h-8 w-8 text-slate-300" strokeWidth={1.5} />
-                <p className="text-sm text-slate-500">No medications were added to this prescription.</p>
-              </div>
-            )}
-
-            {/* ── Section: Doctor's Advice ── */}
-            {advice.length > 0 && (
-              <section aria-labelledby="rx-advice-heading">
-                <div className="mb-4">
-                  <SectionHeading>
-                    <span id="rx-advice-heading">Doctor&apos;s Advice</span>
-                  </SectionHeading>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {advice.map((item) => (
-                    <div
-                      key={item}
-                      className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 print:border-emerald-200 print:bg-transparent"
-                    >
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
-                      <span className="text-sm font-medium text-slate-700">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* ── Section: Notes / Warning ── */}
-            {notes.trim() && (
-              <section aria-labelledby="rx-notes-heading">
-                <div className="mb-4">
-                  <SectionHeading>
-                    <span id="rx-notes-heading">Additional Notes</span>
-                  </SectionHeading>
-                </div>
-
-                <div className="flex gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/60 px-4 py-4 print:border-amber-300 print:bg-transparent">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" strokeWidth={2} />
-                  <p className="text-sm leading-relaxed text-slate-700">{notes}</p>
-                </div>
-              </section>
-            )}
-
-            {/* ── Divider ── */}
-            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent print:bg-slate-300" />
-
-            {/* ── Authenticity Footer ── */}
-            <footer className="flex flex-col gap-2 text-center print:text-left">
-              <p className="text-[11px] font-medium text-slate-400">
-                This is a verified digital prescription issued by QSync Medical Platform.
-              </p>
-              <div className="flex items-center justify-center gap-2 print:justify-start">
-                <Hash className="h-3 w-3 text-slate-400" strokeWidth={2} />
-                <code className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] text-slate-500 print:border-slate-300">
-                  {rx.id}
-                </code>
-              </div>
-              <p className="text-[10px] text-slate-300">
-                Short ID: #{shortId} · Powered by QSync
-              </p>
-            </footer>
-          </div>
-        </main>
-
-        {/* Below-card note (screen only) */}
-        <p className="mt-6 text-center text-xs text-slate-400 print:hidden">
-          Share this page link with your pharmacy or save it as a PDF using the Print button above.
-        </p>
+          {/* Below-card note */}
+          <p className="mt-4 text-center text-xs text-slate-400">
+            Share this page link with your pharmacy or save it as a PDF using your browser&apos;s print function.
+          </p>
+        </div>
       </div>
     </>
   );
 }
+

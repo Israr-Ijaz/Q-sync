@@ -8,7 +8,6 @@
  */
 
 import { useState } from 'react';
-import dynamic from 'next/dynamic';
 import {
   Printer,
   QrCode,
@@ -21,20 +20,13 @@ import {
   Building2,
   Link2,
 } from 'lucide-react';
-
-// ── QRCode is canvas-based — skip SSR ────────────────────────────────────
-const QRCode = dynamic(() => import('react-qrcode-logo').then((m) => m.QRCode), {
-  ssr: false,
-  loading: () => (
-    <div className="w-[300px] h-[300px] rounded-2xl bg-slate-100 animate-pulse mx-auto" />
-  ),
-});
+import PremiumQRCode from '@/components/PremiumQRCode';
 
 // ── Config ────────────────────────────────────────────────────────────────
-const YOUR_DOMAIN = 'https://qsync.app';
+const YOUR_DOMAIN = 'https://opedox.app';
 
 const THEMES = [
-  { label: 'QSync Emerald', value: '#25D366', bg: '#f0fdf4', ring: '#bbf7d0' },
+  { label: 'Opedox Emerald', value: '#25D366', bg: '#f0fdf4', ring: '#bbf7d0' },
   { label: 'Premium Slate', value: '#0f172a', bg: '#f8fafc', ring: '#cbd5e1' },
   { label: 'Royal Indigo', value: '#4f46e5', bg: '#eef2ff', ring: '#c7d2fe' },
   { label: 'Crimson Care', value: '#dc2626', bg: '#fff1f2', ring: '#fecdd3' },
@@ -85,8 +77,11 @@ export default function QRBuilderPage() {
   const [themeColor, setThemeColor] = useState<ThemeValue>('#25D366');
   const [qrPattern, setQrPattern] = useState<PatternValue>('dots');
 
-  const qrUrl = `${YOUR_DOMAIN}/c/${clinicSlug || 'your-clinic'}`;
+  const clinicUrl = `${YOUR_DOMAIN}/c/${clinicSlug || 'your-clinic'}`;
+  /** Alias kept for template references below */
+  const qrUrl = clinicUrl;
   const activeTheme = THEMES.find((t) => t.value === themeColor) ?? THEMES[0];
+  const activeColorCode = themeColor;
 
   return (
     <>
@@ -265,10 +260,10 @@ export default function QRBuilderPage() {
               style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}99)` }}
             />
 
-            <div className="flex flex-col items-center flex-1 px-16 pt-12 pb-10">
+            <div className="flex flex-col items-center flex-1 px-12 pt-8 pb-6">
 
               {/* ── Clinic icon + name ── */}
-              <div className="flex flex-col items-center gap-4 mb-8">
+              <div className="flex flex-col items-center gap-3 mb-5">
                 <div
                   className="w-16 h-16 rounded-[18px] flex items-center justify-center shadow-lg"
                   style={{
@@ -293,7 +288,7 @@ export default function QRBuilderPage() {
               </div>
 
               {/* ── CTA text ── */}
-              <div className="flex flex-col items-center text-center mb-8 gap-1">
+              <div className="flex flex-col items-center text-center mb-5 gap-1">
                 <p className="text-xl font-bold text-slate-700">
                   Scan to Join the Live Queue
                 </p>
@@ -306,45 +301,36 @@ export default function QRBuilderPage() {
                 </p>
               </div>
 
-              {/* ── QR Code (high-res canvas scaled down) ── */}
+              {/* ── QR Code — premium SVG via qr-code-styling ── */}
               <div
-                className="p-5 rounded-3xl mb-6"
+                className="p-3 rounded-3xl mb-3"
                 style={{
-                  border: `2px solid ${themeColor}22`,
-                  boxShadow: `0 8px 40px ${themeColor}18, 0 2px 8px rgba(0,0,0,0.06)`,
+                  border: `2px solid ${activeColorCode}22`,
+                  boxShadow: `0 8px 40px ${activeColorCode}18, 0 2px 8px rgba(0,0,0,0.06)`,
                 }}
               >
-                {/* 4K canvas (1024px) scaled to 300px — crisp on any printer */}
-                <div className="w-[300px] h-[300px] mx-auto overflow-hidden [&>canvas]:!w-full [&>canvas]:!h-auto">
-                  <QRCode
-                    value={qrUrl}
-                    size={1024}
-                    qrStyle={qrPattern}
-                    fgColor={themeColor}
-                    bgColor="#ffffff"
-                    eyeRadius={[10, 10, 10, 10] as unknown as number}
-                    quietZone={40}
-                  />
+                <div className="w-36 h-36 md:w-44 md:h-44 mx-auto flex items-center justify-center">
+                  <PremiumQRCode data={clinicUrl} color={activeColorCode} pattern={qrPattern} />
                 </div>
               </div>
 
               {/* URL hint */}
-              <p className="text-xs text-slate-400 font-mono mb-8 tracking-tight">
+              <p className="text-xs text-slate-400 font-mono mt-2 mb-2 tracking-tight">
                 {qrUrl}
               </p>
 
               {/* ── 3-step instructions (mt-16 from spec) ── */}
               <div className="w-full mt-auto">
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-slate-400 text-center mb-5">
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-slate-400 text-center mb-2">
                   How it works
                 </p>
                 <div
-                  className="grid grid-cols-3 gap-6 mt-0"
+                  className="grid grid-cols-3 gap-3 mt-0"
                   style={{
                     background: `${themeColor}06`,
                     borderRadius: '16px',
                     border: `1px solid ${themeColor}14`,
-                    padding: '20px',
+                    padding: '12px',
                   }}
                 >
                   {([
@@ -378,9 +364,9 @@ export default function QRBuilderPage() {
               style={{ borderTop: `1px solid ${themeColor}14` }}
             >
               <p className="text-[10px] text-slate-400 tracking-widest uppercase font-medium">
-                Powered by QSync
+                Powered by Opedox
               </p>
-              <p className="text-[10px] text-slate-400 font-mono">qsync.app</p>
+              <p className="text-[10px] text-slate-400 font-mono">opedox.app</p>
             </div>
 
             {/* Bottom accent bar */}

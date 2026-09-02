@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
+import PremiumPrescription from '@/components/PremiumPrescription';
 import {
   Stethoscope,
   User,
@@ -25,8 +26,15 @@ import {
   ChevronRight,
   AlertCircle,
   FileText,
+  Lock,
+  BookmarkPlus,
+  BookOpen,
+  X,
+  FlaskConical,
+  Printer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSubscription } from '@/lib/subscription-context';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ConsultationToken {
@@ -54,6 +62,17 @@ interface Protocol {
   accentColor: string;
   meds: Omit<MedItem, 'id'>[];
 }
+
+interface RxTemplate {
+  id: string;
+  clinic_slug: string;
+  template_name: string;
+  medicines: Omit<MedItem, 'id'>[];
+  created_at: string;
+}
+
+// Clinic slug — must match the constant in dashboard/layout.tsx
+const ACTIVE_CLINIC_SLUG = 'demo-clinic';
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
 const PROTOCOLS: Protocol[] = [
@@ -479,6 +498,281 @@ function ProtocolChips({
   );
 }
 
+// ─── Rx Template Bar ──────────────────────────────────────────────────────────
+function RxTemplateBar({
+  templates,
+  isLoading,
+  onApply,
+  onSaveClick,
+  hasMeds,
+}: {
+  templates: RxTemplate[];
+  isLoading: boolean;
+  onApply: (t: RxTemplate) => void;
+  onSaveClick: () => void;
+  hasMeds: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-3.5 w-3.5 text-emerald-400" strokeWidth={2} />
+          <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+            Quick Apply Template
+          </span>
+        </div>
+        <div className="flex gap-2">
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="h-9 w-28 animate-pulse rounded-xl border border-slate-800/60 bg-slate-800/40"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Row header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-3.5 w-3.5 text-emerald-400" strokeWidth={2} />
+          <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+            Quick Apply Template
+          </span>
+          {templates.length > 0 && (
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-[9px] font-bold text-emerald-400">
+              {templates.length}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Chip row */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <AnimatePresence>
+          {templates.length === 0 ? (
+            <motion.p
+              key="no-templates"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="whitespace-nowrap text-xs text-slate-600"
+            >
+              No saved templates yet — save your first below.
+            </motion.p>
+          ) : (
+            templates.map((t, i) => (
+              <motion.button
+                key={t.id}
+                id={`rx-template-chip-${t.id}`}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.85 }}
+                transition={{ delay: i * 0.05, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                onClick={() => onApply(t)}
+                whileHover={{ scale: 1.05, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                className={cn(
+                  'group relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2',
+                  'border border-emerald-500/25 bg-emerald-500/8 text-emerald-300',
+                  'text-xs font-semibold transition-all duration-200',
+                  'hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:shadow-[0_0_16px_rgba(16,185,129,0.2)]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60',
+                )}
+                title={`Apply "${t.template_name}" — ${t.medicines.length} med${t.medicines.length !== 1 ? 's' : ''}`}
+              >
+                <FlaskConical className="h-3 w-3 shrink-0 opacity-70" strokeWidth={2} />
+                <span className="max-w-[120px] truncate">{t.template_name}</span>
+                <span className="ml-0.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1 py-0.5 text-[9px] font-bold text-emerald-500">
+                  {t.medicines.length}
+                </span>
+              </motion.button>
+            ))
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-emerald-500/10 to-transparent" />
+    </div>
+  );
+}
+
+// ─── Save Template Modal ───────────────────────────────────────────────────────
+function SaveTemplateModal({
+  isOpen,
+  isSaving,
+  onClose,
+  onSave,
+}: {
+  isOpen: boolean;
+  isSaving: boolean;
+  onClose: () => void;
+  onSave: (name: string) => void;
+}) {
+  const [name, setName] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus input when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 80);
+      setName('');
+    }
+  }, [isOpen]);
+
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onSave(trimmed);
+    setName('');
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+
+          {/* Panel */}
+          <motion.div
+            key="modal-panel"
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Save Rx Template"
+            className={cn(
+              'fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2',
+              'rounded-2xl border border-white/[0.08]',
+              'bg-slate-900/95 backdrop-blur-2xl',
+              'p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_32px_64px_rgba(0,0,0,0.7)]',
+            )}
+          >
+            {/* Header */}
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/20 to-teal-500/10">
+                  <BookmarkPlus className="h-4 w-4 text-emerald-400" strokeWidth={1.75} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-100">Save as Template</h3>
+                  <p className="text-[11px] text-slate-500">Reuse this prescription with one click</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-800/60 hover:text-slate-300"
+                aria-label="Close modal"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* Input */}
+            <div className="mb-5 flex flex-col gap-1.5">
+              <label
+                htmlFor="template-name-input"
+                className="text-[11px] font-semibold uppercase tracking-widest text-slate-500"
+              >
+                Template Name
+              </label>
+              <input
+                ref={inputRef}
+                id="template-name-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSubmit();
+                  if (e.key === 'Escape') onClose();
+                }}
+                placeholder="e.g. Viral Fever, URTI, Gastritis…"
+                maxLength={60}
+                className={cn(
+                  'w-full rounded-xl border border-slate-700/60 bg-slate-800/60',
+                  'px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-600',
+                  'transition-colors focus:border-emerald-500/50 focus:bg-slate-800/80 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.08)]',
+                )}
+              />
+              <p className="text-right text-[10px] text-slate-700">{name.length}/60</p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2.5">
+              <button
+                onClick={onClose}
+                disabled={isSaving}
+                className="flex-1 rounded-xl border border-slate-700/60 bg-transparent py-2.5 text-sm font-medium text-slate-400 transition-colors hover:border-slate-600/80 hover:text-slate-200 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <motion.button
+                id="save-template-confirm-btn"
+                onClick={handleSubmit}
+                disabled={isSaving || !name.trim()}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5',
+                  'border border-emerald-500/30 bg-gradient-to-r from-emerald-600/80 to-teal-600/80',
+                  'text-sm font-semibold text-white',
+                  'transition-all hover:from-emerald-500/90 hover:to-teal-500/90',
+                  'shadow-[0_0_16px_rgba(16,185,129,0.2)]',
+                  'disabled:cursor-not-allowed disabled:opacity-40',
+                )}
+              >
+                <AnimatePresence mode="wait">
+                  {isSaving ? (
+                    <motion.span
+                      key="saving"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                        className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white"
+                      />
+                      Saving…
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="idle"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <BookmarkPlus className="h-3.5 w-3.5" strokeWidth={2} />
+                      Save Template
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // ─── Med Row ──────────────────────────────────────────────────────────────────
 function MedRow({
   med,
@@ -800,12 +1094,14 @@ function AdviceSection({
 function ActionFooter({
   onSendWhatsApp,
   onComplete,
+  onPrintPdf,
   isSending,
   isCompleting,
   successMsg,
 }: {
   onSendWhatsApp: () => void;
   onComplete: () => void;
+  onPrintPdf: () => void;
   isSending: boolean;
   isCompleting: boolean;
   successMsg: string | null;
@@ -927,6 +1223,26 @@ function ActionFooter({
           </span>
         </motion.button>
       </div>
+
+      {/* Download / Print PDF button */}
+      <motion.button
+        id="doctor-print-pdf-btn"
+        onClick={onPrintPdf}
+        disabled={isSending || isCompleting}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
+        className={cn(
+          'flex w-full items-center justify-center gap-2.5 rounded-2xl py-3 text-sm font-semibold',
+          'border border-slate-700/60 bg-slate-800/50 text-slate-200',
+          'transition-all hover:border-slate-600/80 hover:bg-slate-800/80 hover:text-white',
+          'disabled:cursor-not-allowed disabled:opacity-40',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60',
+        )}
+        aria-label="Download or print prescription as PDF"
+      >
+        <Printer className="h-4 w-4" strokeWidth={1.75} />
+        📄 Download / Print PDF
+      </motion.button>
     </div>
   );
 }
@@ -949,6 +1265,13 @@ function RxEngine({
   onNotesChange,
   onSendWhatsApp,
   onComplete,
+  onPrintPdf,
+  // Template props
+  rxTemplates,
+  templatesLoading,
+  onApplyTemplate,
+  onSaveTemplateClick,
+  isSavingTemplate,
 }: {
   token: ConsultationToken;
   medications: MedItem[];
@@ -966,6 +1289,13 @@ function RxEngine({
   onNotesChange: (val: string) => void;
   onSendWhatsApp: () => void;
   onComplete: () => void;
+  onPrintPdf: () => void;
+  // Template props
+  rxTemplates: RxTemplate[];
+  templatesLoading: boolean;
+  onApplyTemplate: (t: RxTemplate) => void;
+  onSaveTemplateClick: () => void;
+  isSavingTemplate: boolean;
 }) {
   return (
     <motion.div
@@ -1007,8 +1337,17 @@ function RxEngine({
       </div>
 
       <div className="flex flex-col gap-0">
-        {/* Section A */}
-        <section className="border-b border-white/[0.05] px-6 py-5">
+        {/* ── Section A: Templates + Protocols ── */}
+        <section className="border-b border-white/[0.05] px-6 py-5 space-y-5">
+          {/* Template chips row */}
+          <RxTemplateBar
+            templates={rxTemplates}
+            isLoading={templatesLoading}
+            onApply={onApplyTemplate}
+            onSaveClick={onSaveTemplateClick}
+            hasMeds={medications.length > 0}
+          />
+          {/* Static protocol chips row */}
           <ProtocolChips activeId={activeProtocol} onSelect={onProtocolSelect} />
         </section>
 
@@ -1026,6 +1365,27 @@ function RxEngine({
             onDelete={onDeleteMed}
             onChange={onChangeMed}
           />
+          {/* Save as Template button — lives below the medicine list */}
+          <motion.button
+            id="save-as-template-btn"
+            onClick={onSaveTemplateClick}
+            disabled={medications.length === 0 || isSavingTemplate}
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.985 }}
+            className={cn(
+              'mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5',
+              'border border-emerald-500/25 bg-transparent',
+              'text-xs font-semibold text-emerald-500/80 transition-all duration-200',
+              'hover:border-emerald-500/50 hover:bg-emerald-500/8 hover:text-emerald-400',
+              'hover:shadow-[0_0_16px_rgba(16,185,129,0.1)]',
+              'disabled:cursor-not-allowed disabled:opacity-30',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40',
+            )}
+            aria-label="Save current medicines as a reusable template"
+          >
+            <BookmarkPlus className="h-3.5 w-3.5" strokeWidth={2} />
+            💾 Save current medicines as Template
+          </motion.button>
         </section>
 
         {/* Section C */}
@@ -1049,6 +1409,7 @@ function RxEngine({
           <ActionFooter
             onSendWhatsApp={onSendWhatsApp}
             onComplete={onComplete}
+            onPrintPdf={onPrintPdf}
             isSending={isSending}
             isCompleting={isCompleting}
             successMsg={successMsg}
@@ -1061,6 +1422,9 @@ function RxEngine({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DoctorDashboardPage() {
+  // ── Pro subscription gate ────────────────────────────────────────────────
+  const { isProActive } = useSubscription();
+
   // ── Core token state ────────────────────────────────────────────────────────
   const [currentToken, setCurrentToken] = useState<ConsultationToken | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -1075,6 +1439,12 @@ export default function DoctorDashboardPage() {
   const [isSending, setIsSending] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [rxSuccessMsg, setRxSuccessMsg] = useState<string | null>(null);
+
+  // ── Rx Template state ───────────────────────────────────────────────────────
+  const [rxTemplates, setRxTemplates] = useState<RxTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -1106,9 +1476,26 @@ export default function DoctorDashboardPage() {
     setIsLoading(false);
   }, [supabase]);
 
+  // ── 1b. Fetch Rx Templates ────────────────────────────────────────────────
+  const fetchTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    const { data, error } = await supabase
+      .from('rx_templates')
+      .select('id, clinic_slug, template_name, medicines, created_at')
+      .eq('clinic_slug', ACTIVE_CLINIC_SLUG)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[DoctorDashboard] Error fetching templates:', error.message);
+    }
+    setRxTemplates((data as RxTemplate[]) ?? []);
+    setTemplatesLoading(false);
+  }, [supabase]);
+
   useEffect(() => {
     fetchActiveToken();
-  }, [fetchActiveToken]);
+    fetchTemplates();
+  }, [fetchActiveToken, fetchTemplates]);
 
   // Keep a ref to latest token for realtime callback
   const currentTokenRef = useRef<ConsultationToken | null>(null);
@@ -1168,6 +1555,64 @@ export default function DoctorDashboardPage() {
     );
   }, []);
 
+  // ── Template handlers ────────────────────────────────────────────────────
+  /** Append template medicines to the current list (does not replace). */
+  const handleApplyTemplate = useCallback((template: RxTemplate) => {
+    setMedications((prev) => [
+      ...prev,
+      ...template.medicines.map((m) => ({ ...m, id: uid() })),
+    ]);
+  }, []);
+
+  /** Save current medicine list as a new named template. */
+  const handleSaveTemplate = async (name: string) => {
+    if (!name.trim() || medications.length === 0) return;
+    setIsSavingTemplate(true);
+
+    // Strip client-only `id` field before persisting
+    const medicinesPayload = medications.map(({ id: _id, ...rest }) => rest);
+
+    const payload = {
+      clinic_slug: ACTIVE_CLINIC_SLUG,
+      template_name: name.trim(),
+      medicines: medicinesPayload,
+    };
+
+    // Optimistic: add a placeholder row immediately so the chip appears
+    const optimisticId = uid();
+    const optimisticTemplate: RxTemplate = {
+      id: optimisticId,
+      created_at: new Date().toISOString(),
+      ...payload,
+    };
+    setRxTemplates((prev) => [optimisticTemplate, ...prev]);
+    setShowSaveModal(false);
+
+    // Persist to Supabase
+    const { data, error } = await supabase
+      .from('rx_templates')
+      .insert(payload)
+      .select('id, created_at')
+      .single();
+
+    if (error) {
+      console.error('[DoctorDashboard] Failed to save template:', error.message);
+      // Rollback the optimistic chip
+      setRxTemplates((prev) => prev.filter((t) => t.id !== optimisticId));
+    } else {
+      // Replace optimistic row with the server-confirmed id + timestamp
+      setRxTemplates((prev) =>
+        prev.map((t) =>
+          t.id === optimisticId
+            ? { ...t, id: data.id, created_at: data.created_at }
+            : t,
+        ),
+      );
+    }
+
+    setIsSavingTemplate(false);
+  };
+
   const handleSendWhatsApp = async () => {
     if (!currentToken) return;
     setIsSending(true);
@@ -1193,7 +1638,7 @@ export default function DoctorDashboardPage() {
 
     const rxUrl = `${window.location.origin}/rx/${data.id}`;
     const encodedMessage = encodeURIComponent(
-      `Dear ${currentToken.patient_name}, your prescription is ready.\nView it here: ${rxUrl}`,
+      `Dear ${currentToken.patient_name}, your digital prescription is ready.\n\nView it here: ${rxUrl}\n\n-- Powered by Opedox 🚀`,
     );
 
     // ── 1. Format phone to international standard ──────────────────────────
@@ -1251,9 +1696,36 @@ export default function DoctorDashboardPage() {
     clearWorkspace();
   };
 
+  // ── Print handler ─────────────────────────────────────────────────────────
+  const handlePrintPdf = useCallback(() => {
+    window.print();
+  }, []);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-full flex-col gap-6">
+    <>
+      {/* ── Print-only prescription overlay ─────────────────────────────────
+          Hidden on screen (hidden), visible only when printing (print:block).
+          The entire dashboard wrapper below has print:hidden so this is the
+          only thing the printer sees.
+      ── */}
+      {currentToken && (
+        /* This wrapper controls display only. The #print-prescription ID
+           lives inside PremiumPrescription itself — it is the CSS target. */
+        <div className="hidden print:block">
+          <PremiumPrescription
+            patientName={currentToken.patient_name}
+            medications={medications}
+            advice={selectedAdvice}
+            notes={notes}
+            createdAt={currentToken.created_at}
+          />
+        </div>
+      )}
+
+
+
+    <div className="flex min-h-full flex-col gap-6 print:hidden">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -1306,29 +1778,101 @@ export default function DoctorDashboardPage() {
 
               {/* ── Right column: Rx Engine (8 cols) ── */}
               <div className="lg:col-span-8">
-                <RxEngine
-                  token={currentToken}
-                  medications={medications}
-                  selectedAdvice={selectedAdvice}
-                  notes={notes}
-                  activeProtocol={activeProtocol}
-                  isSending={isSending}
-                  isCompleting={isCompleting}
-                  successMsg={rxSuccessMsg}
-                  onProtocolSelect={handleProtocolSelect}
-                  onAddMed={handleAddMed}
-                  onDeleteMed={handleDeleteMed}
-                  onChangeMed={handleChangeMed}
-                  onToggleAdvice={handleToggleAdvice}
-                  onNotesChange={setNotes}
-                  onSendWhatsApp={handleSendWhatsApp}
-                  onComplete={handleComplete}
-                />
+                {isProActive ? (
+                  <>
+                    {/* Save Template Modal — rendered at this level so it overlays correctly */}
+                    <SaveTemplateModal
+                      isOpen={showSaveModal}
+                      isSaving={isSavingTemplate}
+                      onClose={() => setShowSaveModal(false)}
+                      onSave={handleSaveTemplate}
+                    />
+                    <RxEngine
+                      token={currentToken}
+                      medications={medications}
+                      selectedAdvice={selectedAdvice}
+                      notes={notes}
+                      activeProtocol={activeProtocol}
+                      isSending={isSending}
+                      isCompleting={isCompleting}
+                      successMsg={rxSuccessMsg}
+                      onProtocolSelect={handleProtocolSelect}
+                      onAddMed={handleAddMed}
+                      onDeleteMed={handleDeleteMed}
+                      onChangeMed={handleChangeMed}
+                      onToggleAdvice={handleToggleAdvice}
+                      onNotesChange={setNotes}
+                      onSendWhatsApp={handleSendWhatsApp}
+                      onComplete={handleComplete}
+                      onPrintPdf={handlePrintPdf}
+                      rxTemplates={rxTemplates}
+                      templatesLoading={templatesLoading}
+                      onApplyTemplate={handleApplyTemplate}
+                      onSaveTemplateClick={() => setShowSaveModal(true)}
+                      isSavingTemplate={isSavingTemplate}
+                    />
+                  </>
+                ) : (
+                  // ── Pro Gate ──
+                  <div
+                    id="rx-engine-pro-gate"
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-5 rounded-3xl',
+                      'border border-rose-500/20',
+                      'bg-slate-900/60 backdrop-blur-2xl',
+                      'px-8 py-16 text-center',
+                      'shadow-[0_0_50px_rgba(225,29,72,0.06),0_0_0_1px_rgba(255,255,255,0.03)]',
+                      'min-h-[420px]',
+                    )}
+                  >
+                    {/* Lock icon with glow */}
+                    <div className="relative flex h-20 w-20 items-center justify-center">
+                      <div className="absolute inset-0 rounded-full bg-rose-500/15 blur-2xl" />
+                      <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-rose-500/20 bg-slate-800/80">
+                        <Lock className="h-9 w-9 text-rose-400" strokeWidth={1.5} />
+                      </div>
+                    </div>
+
+                    {/* Copy */}
+                    <div className="space-y-2">
+                      <h2 className="text-xl font-bold tracking-tight text-slate-100">
+                        Rapid Rx Engine
+                      </h2>
+                      <p className="text-sm text-slate-400">
+                        The AI-assisted prescription builder is a Pro feature.
+                      </p>
+                    </div>
+
+                    {/* Badge */}
+                    <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-4 py-1.5 text-sm font-semibold text-rose-400">
+                      <Lock className="h-3.5 w-3.5" strokeWidth={2} />
+                      Pro Feature
+                    </span>
+
+                    {/* CTA */}
+                    <a
+                      id="rx-gate-cta-btn"
+                      href="https://wa.me/923000000000?text=I%20need%20to%20renew%20my%20Opedox%20Pro%20subscription"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        'mt-2 rounded-xl px-5 py-2.5 text-sm font-bold',
+                        'bg-gradient-to-r from-rose-600 to-red-600 text-white',
+                        'shadow-md hover:shadow-rose-500/20 hover:from-rose-500 hover:to-red-500',
+                        'transition-all duration-150 hover:scale-[1.03] active:scale-100',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60',
+                      )}
+                    >
+                      Upgrade to Pro
+                    </a>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       )}
     </div>
+    </>
   );
 }

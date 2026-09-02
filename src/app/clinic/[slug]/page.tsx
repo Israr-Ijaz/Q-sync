@@ -63,7 +63,7 @@ const CLINIC_DATA: Record<
 };
 
 const DEFAULT_CLINIC = {
-  name: 'QSync Clinic',
+  name: 'Opedox Clinic',
   tagline: 'Effortless patient management.',
   city: 'Pakistan',
   accent: '#8b5cf6',
@@ -553,6 +553,26 @@ export default function ClinicPage({ params }: PageProps) {
               </motion.button>
             </motion.div>
 
+            {/* ── Payment Instructions Card ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.42, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 backdrop-blur-sm"
+            >
+              <h3 className="text-sm font-bold text-amber-300">
+                💳 To confirm your remote token, please transfer Rs. 1500 to the clinic&apos;s account:
+              </h3>
+              <ul className="mt-2.5 space-y-1 text-sm text-amber-200/80">
+                <li><span className="font-semibold text-amber-300">Bank:</span> Meezan Bank</li>
+                <li><span className="font-semibold text-amber-300">IBAN:</span> PK12MEZN000000000000</li>
+                <li><span className="font-semibold text-amber-300">Easypaisa:</span> 0300-XXXXXXX</li>
+              </ul>
+              <p className="mt-3 text-xs italic text-amber-400/70">
+                After generating your token, use the <span className="font-semibold not-italic text-amber-300">WhatsApp button on your ticket screen</span> to send your payment screenshot directly.
+              </p>
+            </motion.div>
+
             {/* Footer */}
             <motion.p
               initial={{ opacity: 0 }}
@@ -561,7 +581,7 @@ export default function ClinicPage({ params }: PageProps) {
               className="text-xs text-zinc-600 text-center"
             >
               Powered by{' '}
-              <span className="text-zinc-400 font-medium">QSync</span>
+              <span className="text-zinc-400 font-medium">Opedox</span>
               {' '}· Your place in queue is reserved instantly.
             </motion.p>
           </motion.form>

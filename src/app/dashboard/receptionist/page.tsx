@@ -17,13 +17,16 @@ import {
     X,
     Keyboard,
     Hash,
+    Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSubscription } from "@/lib/subscription-context";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 type TokenStatus = "waiting" | "in_consultation" | "completed";
+type PaymentMode = "pending" | "cash" | "online_transfer";
 
 interface Token {
     id: string;
@@ -31,6 +34,7 @@ interface Token {
     patient_name: string;
     status: TokenStatus;
     created_at: string;
+    payment_mode?: PaymentMode;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,15 +100,90 @@ function StatusBadge({ status }: { status: TokenStatus }) {
 }
 
 // ---------------------------------------------------------------------------
+// Payment badge / buttons — inline payment verification widget
+// ---------------------------------------------------------------------------
+function PaymentWidget({
+    mode,
+    tokenId,
+    onPayment,
+    isProActive,
+}: {
+    mode: PaymentMode | undefined;
+    tokenId: string;
+    onPayment: (id: string, m: "cash" | "online_transfer") => void;
+    isProActive: boolean;
+}) {
+    if (mode === "cash") {
+        return (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                ✓ Cash Received
+            </span>
+        );
+    }
+    if (mode === "online_transfer") {
+        return (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 text-xs font-semibold text-indigo-300">
+                ✓ Online Verified
+            </span>
+        );
+    }
+    // pending / undefined — show action buttons
+    if (!isProActive) {
+        // Locked state — disabled buttons with lock cue
+        return (
+            <div className="flex items-center gap-1.5 shrink-0" title="Requires Pro subscription">
+                <button
+                    disabled
+                    className="flex items-center gap-1 rounded-lg border border-slate-700/40 bg-slate-800/40 px-2.5 py-1 text-xs font-semibold text-slate-600 cursor-not-allowed opacity-50"
+                    aria-label="Cash payment requires Pro"
+                >
+                    <Lock className="h-3 w-3" strokeWidth={2} />
+                    Cash
+                </button>
+                <button
+                    disabled
+                    className="flex items-center gap-1 rounded-lg border border-slate-700/40 bg-slate-800/40 px-2.5 py-1 text-xs font-semibold text-slate-600 cursor-not-allowed opacity-50"
+                    aria-label="Online payment requires Pro"
+                >
+                    <Lock className="h-3 w-3" strokeWidth={2} />
+                    Online
+                </button>
+                <span className="hidden rounded-full border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-500 sm:inline">
+                    Requires Pro
+                </span>
+            </div>
+        );
+    }
+    return (
+        <div className="flex items-center gap-1.5 shrink-0">
+            <button
+                onClick={(e) => { e.stopPropagation(); onPayment(tokenId, "cash"); }}
+                className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+            >
+                💵 Cash
+            </button>
+            <button
+                onClick={(e) => { e.stopPropagation(); onPayment(tokenId, "online_transfer"); }}
+                className="flex items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+            >
+                📱 Online
+            </button>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Token row — used in the Active Queue list
 // ---------------------------------------------------------------------------
 interface TokenRowProps {
     token: Token;
     index: number;
     isTop: boolean;
+    isProActive: boolean;
+    onPayment: (id: string, mode: "cash" | "online_transfer") => void;
 }
 
-function TokenRow({ token, index, isTop }: TokenRowProps) {
+function TokenRow({ token, index, isTop, isProActive, onPayment }: TokenRowProps) {
     return (
         <motion.div
             layout
@@ -113,7 +192,7 @@ function TokenRow({ token, index, isTop }: TokenRowProps) {
             exit={{ opacity: 0, x: -24, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
             className={cn(
-                "group relative flex items-center gap-4 rounded-2xl border px-5 py-4",
+                "group relative flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4",
                 "transition-colors duration-200",
                 isTop
                     ? "border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-teal-500/5 shadow-[0_0_16px_rgba(16,185,129,0.08)]"
@@ -165,9 +244,17 @@ function TokenRow({ token, index, isTop }: TokenRowProps) {
             {/* Status */}
             <StatusBadge status={token.status} />
 
+            {/* Payment verification widget */}
+            <PaymentWidget
+                mode={token.payment_mode}
+                tokenId={token.id}
+                onPayment={onPayment}
+                isProActive={isProActive}
+            />
+
             {/* Next indicator for top item */}
             {isTop && (
-                <span className="ml-1 flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-300">
+                <span className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-300">
                     <Zap className="h-3 w-3" />
                     Next
                 </span>
@@ -391,6 +478,7 @@ function HotkeyPill({
 export default function ReceptionistDashboardPage() {
     const supabaseRef = useRef(createClient());
     const supabase = supabaseRef.current;
+    const { isProActive } = useSubscription();
 
     const [tokens, setTokens] = useState<Token[]>([]);
     const [loading, setLoading] = useState(true);
@@ -415,6 +503,32 @@ export default function ReceptionistDashboardPage() {
         []
     );
 
+    // ── 1-click payment verification ─────────────────────────────────────────
+    const updatePayment = useCallback(
+        async (id: string, mode: "cash" | "online_transfer") => {
+            // Optimistic update — apply immediately
+            setTokens((prev) =>
+                prev.map((t) => (t.id === id ? { ...t, payment_mode: mode } : t))
+            );
+            const { error } = await supabase
+                .from("tokens")
+                .update({ payment_mode: mode })
+                .eq("id", id);
+            if (error) {
+                // Roll back on failure
+                setTokens((prev) =>
+                    prev.map((t) => (t.id === id ? { ...t, payment_mode: "pending" } : t))
+                );
+                showToast("Failed to update payment.", "error");
+            } else {
+                showToast(
+                    mode === "cash" ? "💵 Cash payment recorded." : "📱 Online transfer verified."
+                );
+            }
+        },
+        [supabase, showToast]
+    );
+
     // ── Initial fetch ─────────────────────────────────────────────────────────
     useEffect(() => {
         const fetchTokens = async () => {
@@ -424,7 +538,7 @@ export default function ReceptionistDashboardPage() {
 
             const { data, error } = await supabase
                 .from("tokens")
-                .select("id, token_number, patient_name, status, created_at")
+                .select("id, token_number, patient_name, status, created_at, payment_mode")
                 .gte("created_at", today.toISOString())
                 .order("token_number", { ascending: true });
 
@@ -844,6 +958,8 @@ export default function ReceptionistDashboardPage() {
                                                 token={token}
                                                 index={i}
                                                 isTop={i === 0}
+                                                isProActive={isProActive}
+                                                onPayment={updatePayment}
                                             />
                                         ))}
                                     </AnimatePresence>

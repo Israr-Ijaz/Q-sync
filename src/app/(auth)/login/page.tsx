@@ -141,7 +141,7 @@ export default function LoginPage() {
             {/* Wordmark */}
             <div className="space-y-1">
               <h1 className="bg-gradient-to-r from-slate-100 via-white to-slate-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent">
-                QSync Medical
+                Opedox Medical
               </h1>
               <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
                 OPD Terminal Access
@@ -154,7 +154,7 @@ export default function LoginPage() {
 
           {/* ── Login form ── */}
           <form
-            id="qsync-login-form"
+            id="opedox-login-form"
             onSubmit={handleSubmit}
             noValidate
             className="space-y-5"
@@ -176,7 +176,7 @@ export default function LoginPage() {
                   id="login-email"
                   type="email"
                   autoComplete="email"
-                  placeholder="clinic@qsync.med"
+                  placeholder="clinic@opedox.med"
                   value={form.email}
                   onChange={handleChange("email")}
                   disabled={form.loading}
