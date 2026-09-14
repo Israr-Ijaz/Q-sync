@@ -1446,6 +1446,14 @@ export default function DoctorDashboardPage() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
+  // ── Dynamic doctor / clinic data ────────────────────────────────────────────
+  const [doctorFullName, setDoctorFullName] = useState<string | null>(null);
+  const [doctorCredentials, setDoctorCredentials] = useState<string | null>(null);
+  const [doctorSpecialization, setDoctorSpecialization] = useState<string | null>(null);
+  const [clinicName, setClinicName] = useState<string | null>(null);
+  const [clinicAddress, setClinicAddress] = useState<string | null>(null);
+  const [signatureImageUrl, setSignatureImageUrl] = useState<string | null>(null);
+
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
 
@@ -1496,6 +1504,73 @@ export default function DoctorDashboardPage() {
     fetchActiveToken();
     fetchTemplates();
   }, [fetchActiveToken, fetchTemplates]);
+
+  // ── Fetch doctor profile + credentials on mount ─────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchDoctorData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (cancelled || !user) return;
+
+        // Fetch profile with joined clinic name + address
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, clinics(name, address)')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (profile) {
+          setDoctorFullName(profile.full_name ?? null);
+
+          // Resolve joined clinic (may be object or array from Supabase FK join)
+          const rawClinic = (profile as { clinics?: { name?: string; address?: string } | { name?: string; address?: string }[] }).clinics;
+          const resolvedClinic = Array.isArray(rawClinic) ? rawClinic[0] : rawClinic;
+          setClinicName(resolvedClinic?.name ?? null);
+          setClinicAddress(resolvedClinic?.address ?? null);
+        }
+
+        // Fetch credentials from doctors table
+        const { data: doctorRow } = await supabase
+          .from('doctors')
+          .select('qualifications, specialization')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (!cancelled && doctorRow) {
+          setDoctorCredentials(doctorRow.qualifications ?? null);
+          setDoctorSpecialization(doctorRow.specialization ?? null);
+        }
+
+        // Fetch signature from storage
+        const { data: signatureData } = await supabase
+          .storage
+          .from('signatures')
+          .getPublicUrl(`${user.id}.png`);
+        
+        // We'll optimistically assume it might exist and set it. If it fails to load, the <img> tag could break, 
+        // but typically getPublicUrl always returns a string, so we'll just check if it's there.
+        // Actually, without checking if the file exists, getPublicUrl will return a 404 URL. 
+        // We can do a quick check by fetching the image or checking if the file exists in the bucket.
+        // For a seamless setup, we'll first check if the file exists in the folder.
+        const { data: files } = await supabase.storage.from('signatures').list('', {
+          search: `${user.id}.png`
+        });
+        
+        if (!cancelled && files && files.length > 0) {
+          setSignatureImageUrl(signatureData.publicUrl);
+        }
+      } catch (err) {
+        console.error('[DoctorDashboard] Error fetching doctor data:', err);
+      }
+    }
+
+    fetchDoctorData();
+    return () => { cancelled = true; };
+  }, [supabase]);
 
   // Keep a ref to latest token for realtime callback
   const currentTokenRef = useRef<ConsultationToken | null>(null);
@@ -1617,12 +1692,17 @@ export default function DoctorDashboardPage() {
     if (!currentToken) return;
     setIsSending(true);
 
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
     const { data, error } = await supabase
       .from('prescriptions')
       .insert({
         token_id: currentToken.id,
         patient_name: currentToken.patient_name,
         clinic_id: currentToken.clinic_id,
+        // Stamp the doctor's auth uid so the public Rx page can look up credentials
+        // without requiring the patient to be logged in.
+        doctor_id: currentUser?.id ?? null,
         medications: medications,
         advice: selectedAdvice,
         notes: notes,
@@ -1637,8 +1717,13 @@ export default function DoctorDashboardPage() {
     }
 
     const rxUrl = `${window.location.origin}/rx/${data.id}`;
+
+    const docName = doctorFullName || 'Doctor';
+    const docQuals = doctorCredentials ? `, ${doctorCredentials}` : '';
+    const clinicPart = clinicName ? `, at ${clinicName}` : '';
+
     const encodedMessage = encodeURIComponent(
-      `Dear ${currentToken.patient_name}, your digital prescription is ready.\n\nView it here: ${rxUrl}\n\n-- Powered by Opedox 🚀`,
+      `Hello ${currentToken.patient_name},\n\nYour verified digital prescription from ${docName}${docQuals}${clinicPart} is now available.\n\n📄 View and download your secure prescription here:\n${rxUrl}\n\nWishing you good health!\n\n-- Powered by Opedox 🚀`
     );
 
     // ── 1. Format phone to international standard ──────────────────────────
@@ -1719,6 +1804,13 @@ export default function DoctorDashboardPage() {
             advice={selectedAdvice}
             notes={notes}
             createdAt={currentToken.created_at}
+            {...(doctorFullName ? { doctorName: doctorFullName } : {})}
+            {...(doctorCredentials ? { doctorCredentials } : {})}
+            {...(doctorSpecialization ? { doctorSpecialization } : {})}
+            {...(clinicName ? { clinicName } : {})}
+            {...(clinicAddress ? { clinicAddress } : {})}
+            doctorSignatureName={doctorFullName ?? undefined}
+            {...(signatureImageUrl ? { signatureImageUrl } : {})}
           />
         </div>
       )}

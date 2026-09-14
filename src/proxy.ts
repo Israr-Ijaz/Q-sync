@@ -1,22 +1,31 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
+// ─── Role → canonical dashboard path ────────────────────────────────────────
+const ROLE_PATHS: Record<string, string> = {
+  admin: '/dashboard/admin',
+  doctor: '/dashboard/doctor',
+  receptionist: '/dashboard/receptionist',
+};
+
 /**
- * Supabase SSR middleware.
+ * Supabase SSR proxy (Next.js 16 — replaces deprecated middleware.ts).
  *
  * Responsibilities:
  *  1. Refresh the Supabase session on every request so tokens never go stale.
- *  2. Guard every route under /dashboard — redirect to /auth/login if no
- *     valid session exists.
- *  3. If an authenticated user hits /auth/login, send them to the dashboard
- *     home instead of showing the login page again.
+ *  2. Guard every route under /dashboard — redirect to /login if no valid
+ *     session exists.
+ *  3. Enforce strict role isolation inside /dashboard:
+ *       admin       → /dashboard/admin
+ *       doctor      → /dashboard/doctor
+ *       receptionist → /dashboard/receptionist
+ *  4. If an authenticated user hits /login, send them to their dashboard.
+ *  5. Allow Meta's WhatsApp webhook to pass through without auth checks.
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── 0. BYPASS FOR WEBHOOKS ──────────────────────────────────────────────
-  // Allow Meta's WhatsApp bots to reach the webhook immediately without 
-  // waiting for Supabase to check cookies or ping the database.
+  // ── 0. Bypass for webhooks ───────────────────────────────────────────────
   if (pathname.startsWith('/api/webhooks/whatsapp')) {
     return NextResponse.next();
   }
@@ -24,9 +33,8 @@ export async function proxy(request: NextRequest) {
   // Start with a plain pass-through response so we can mutate its cookies.
   let response = NextResponse.next({ request });
 
-  // ── Build a server-side Supabase client that reads/writes the response
-  //    cookies, which is how @supabase/ssr propagates refreshed tokens to
-  //    the browser on every request.
+  // ── Build a server-side Supabase client that reads/writes cookies.
+  //    This is how @supabase/ssr propagates refreshed tokens on every request.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -36,13 +44,11 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // First write the cookies into the *request* so the server
-          // components downstream see the refreshed values.
+          // Write cookies into the *request* so server components see them.
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          // Then rebuild the response so it carries those same cookies back
-          // to the browser.
+          // Rebuild response so the browser receives the refreshed cookies.
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -52,44 +58,66 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Always call getUser() (not getSession()) in middleware.
-  // getSession() only reads the local cookie and can be spoofed.
-  // getUser() validates the JWT with the Supabase auth server each time.
+  // IMPORTANT: Always use getUser() (not getSession()) — it validates the JWT
+  // with the Supabase auth server each time and cannot be spoofed.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // ── 1. Protect /dashboard/** ────────────────────────────────────────────
+  // ── 1. Protect /dashboard/** ─────────────────────────────────────────────
   if (pathname.startsWith('/dashboard')) {
     if (!user) {
-      // No valid session — redirect to login, preserving the intended URL
-      // so we can redirect back after a successful login if needed.
+      // No valid session — redirect to login, preserving the intended URL.
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirected_from', pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    // ── 2. Role-based strict isolation ────────────────────────────────────
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const role = (profile?.role as string | undefined) ?? 'receptionist';
+    const canonicalPath = ROLE_PATHS[role] ?? '/dashboard/receptionist';
+
+    // If the user is on a dashboard path that doesn't belong to their role,
+    // redirect them to their canonical path.
+    if (!pathname.startsWith(canonicalPath)) {
+      return NextResponse.redirect(new URL(canonicalPath, request.url));
+    }
   }
 
-  // ── 2. Skip login page for already-authenticated users ──────────────────
+  // ── 3. Skip login for already-authenticated users ────────────────────────
   if (pathname === '/login' && user) {
-    // They are already logged in — send them to the dashboard root.
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    // Fetch role so we redirect to the right dashboard, not just /dashboard.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const role = (profile?.role as string | undefined) ?? 'receptionist';
+    const canonicalPath = ROLE_PATHS[role] ?? '/dashboard/receptionist';
+    return NextResponse.redirect(new URL(canonicalPath, request.url));
   }
 
-  // ── 3. Pass through (with potentially refreshed session cookies) ─────────
+  // ── 4. Pass through (with potentially refreshed session cookies) ──────────
   return response;
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
+     * Match all request paths except for:
      * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - login (our new public login page)
-     * - api/webhooks/whatsapp (Meta's webhook verification)
+     * - _next/image  (image optimisation files)
+     * - favicon.ico  (favicon file)
+     * - login        (public login page)
+     * - api/webhooks/whatsapp (Meta's webhook verification — also bypassed above)
      */
     '/((?!_next/static|_next/image|favicon.ico|login|api/webhooks/whatsapp).*)',
   ],
-}
+};

@@ -69,7 +69,13 @@ export default function LoginPage() {
         .maybeSingle();
 
       const role = (profile?.role as string | undefined) ?? "receptionist";
-      router.push(role === "doctor" ? "/dashboard/doctor" : "/dashboard/receptionist");
+      if (role === "admin") {
+        router.push("/dashboard/admin");
+      } else if (role === "doctor") {
+        router.push("/dashboard/doctor");
+      } else {
+        router.push("/dashboard/receptionist");
+      }
     } catch (err) {
       console.error("[Login] Unexpected error:", err);
       setForm((prev) => ({
@@ -275,8 +281,21 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* ── Sign Up prompt ── */}
+          <div className="mt-6 text-center">
+            <p className="text-xs text-slate-500">
+              Don&rsquo;t have an account?{" "}
+              <a
+                href="/signup"
+                className="font-medium text-emerald-400 transition-colors hover:text-emerald-300"
+              >
+                Sign Up
+              </a>
+            </p>
+          </div>
+
           {/* ── Security footer badge ── */}
-          <footer className="mt-8">
+          <footer className="mt-6">
             <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
               <ShieldCheck
                 className="h-4 w-4 shrink-0 text-emerald-500"

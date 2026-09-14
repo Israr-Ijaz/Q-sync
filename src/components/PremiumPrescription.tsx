@@ -21,6 +21,11 @@ export interface PremiumPrescriptionProps {
   doctorName?: string;
   clinicAddress?: string;
   doctorCredentials?: string;
+  doctorSpecialization?: string;
+  /** If provided, renders a cursive digital signature in the footer. Falls back to doctorName. */
+  doctorSignatureName?: string;
+  /** If provided, renders an uploaded image for the signature. Overrides doctorSignatureName. */
+  signatureImageUrl?: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -42,10 +47,13 @@ export default function PremiumPrescription({
   notes = '',
   createdAt,
   prescriptionId,
-  clinicName = 'Opedox Digital Clinic',
-  doctorName = 'Dr. Medical Officer',
-  clinicAddress = '123 Healthcare Avenue, Medical District',
-  doctorCredentials = 'MBBS, FCPS — General Medicine',
+  clinicName,
+  doctorName,
+  clinicAddress,
+  doctorCredentials,
+  doctorSpecialization,
+  doctorSignatureName,
+  signatureImageUrl,
 }: PremiumPrescriptionProps) {
   const issueDate = formatDate(createdAt);
   const shortId = prescriptionId?.split('-')[0].toUpperCase() ?? null;
@@ -80,6 +88,9 @@ export default function PremiumPrescription({
         <div className="text-right shrink-0">
           <p className="text-base font-bold text-slate-800">{doctorName}</p>
           <p className="text-[12px] text-slate-500 mt-0.5">{doctorCredentials}</p>
+          {doctorSpecialization && (
+            <p className="text-[12px] text-emerald-600 font-medium">{doctorSpecialization}</p>
+          )}
           <p className="mt-1 text-[11px] text-slate-400">{clinicAddress}</p>
           <div className="mt-2 inline-block rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 print:border-slate-300">
             <span className="text-xs font-semibold text-slate-600">{issueDate}</span>
@@ -216,13 +227,36 @@ export default function PremiumPrescription({
             )}
           </div>
 
-          {/* Right: Doctor signature block */}
+          {/* Right: Doctor digital signature block */}
           <div className="flex flex-col items-center gap-1">
-            {/* Blank space for signature */}
-            <div className="h-10 w-48" />
+            {/* Signature Area (Image or Text Fallback) */}
+            <div className="flex h-14 w-48 items-end justify-center pb-1">
+              {signatureImageUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img 
+                  src={signatureImageUrl} 
+                  alt={`${doctorName} Signature`} 
+                  className="max-h-14 max-w-full object-contain"
+                />
+              ) : (
+                <span
+                  className="text-2xl font-bold text-slate-700 leading-none select-none"
+                  style={{ fontFamily: 'var(--font-dancing-script), "Brush Script MT", cursive' }}
+                >
+                  {doctorSignatureName ?? doctorName}
+                </span>
+              )}
+            </div>
             <div className="w-48 border-b-2 border-slate-400" />
             <p className="text-xs font-bold text-slate-700 mt-1">{doctorName}</p>
             <p className="text-[10px] text-slate-400">{doctorCredentials}</p>
+            {doctorSpecialization && (
+              <p className="text-[10px] text-emerald-600">{doctorSpecialization}</p>
+            )}
+            <p className="mt-1 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600">
+              <ShieldCheck className="h-3 w-3" strokeWidth={2} />
+              Digitally Signed
+            </p>
           </div>
         </div>
       </div>

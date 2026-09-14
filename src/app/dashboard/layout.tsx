@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Users,
   FileText,
@@ -159,7 +159,19 @@ function NavLink({
 }
 
 /** Sidebar footer with user info */
-function SidebarFooter({ onCloseMobile }: { onCloseMobile?: () => void }) {
+function SidebarFooter({
+  onCloseMobile,
+  userName,
+  userEmail,
+  isUserLoading,
+  onSignOut,
+}: {
+  onCloseMobile?: () => void;
+  userName: string | null;
+  userEmail: string | null;
+  isUserLoading: boolean;
+  onSignOut: () => void;
+}) {
   return (
     <div className="mt-auto border-t border-slate-800/60 px-4 py-4">
       <div className="flex items-center gap-3">
@@ -168,11 +180,21 @@ function SidebarFooter({ onCloseMobile }: { onCloseMobile?: () => void }) {
           <User className="h-4 w-4" strokeWidth={1.75} />
         </div>
         <div className="flex-1 overflow-hidden">
-          <p className="truncate text-xs font-medium text-slate-200">Dr. Clinic Admin</p>
-          <p className="truncate text-[10px] text-slate-600">admin@opedox.med</p>
+          {isUserLoading ? (
+            <>
+              <div className="h-3 w-24 animate-pulse rounded bg-slate-700/60" />
+              <div className="mt-1.5 h-2.5 w-32 animate-pulse rounded bg-slate-800/60" />
+            </>
+          ) : (
+            <>
+              <p className="truncate text-xs font-medium text-slate-200">{userName ?? "User"}</p>
+              <p className="truncate text-[10px] text-slate-600">{userEmail ?? ""}</p>
+            </>
+          )}
         </div>
         {/* Sign out */}
         <button
+          onClick={onSignOut}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-800/60 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
           title="Sign out"
           aria-label="Sign out"
@@ -189,10 +211,18 @@ function SidebarContent({
   pathname,
   isProActive,
   onCloseMobile,
+  userName,
+  userEmail,
+  isUserLoading,
+  onSignOut,
 }: {
   pathname: string;
   isProActive: boolean;
   onCloseMobile?: () => void;
+  userName: string | null;
+  userEmail: string | null;
+  isUserLoading: boolean;
+  onSignOut: () => void;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -218,7 +248,13 @@ function SidebarContent({
         ))}
       </nav>
 
-      <SidebarFooter onCloseMobile={onCloseMobile} />
+      <SidebarFooter
+        onCloseMobile={onCloseMobile}
+        userName={userName}
+        userEmail={userEmail}
+        isUserLoading={isUserLoading}
+        onSignOut={onSignOut}
+      />
     </div>
   );
 }
@@ -232,8 +268,68 @@ function SidebarContent({
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { isProActive, isLoading: subLoading, broadcastMessage, broadcastActive } = useSubscription();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [broadcastDismissed, setBroadcastDismissed] = useState(false);
+
+  // ── Dynamic user / clinic data ──────────────────────────────────────────
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [clinicName, setClinicName] = useState<string | null>(null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
+  const supabase = useRef(createClient()).current;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchUserData() {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (cancelled) return;
+        if (authError || !user) {
+          setIsUserLoading(false);
+          return;
+        }
+
+        setUserEmail(user.email ?? null);
+
+        // Fetch profile with joined clinic name
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, role, clinics(name)")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (profile) {
+          setUserName(profile.full_name ?? null);
+          setUserRole(profile.role ?? null);
+
+          // Resolve joined clinic name (could be object or array)
+          const rawClinic = (profile as { clinics?: { name?: string } | { name?: string }[] }).clinics;
+          const resolved = Array.isArray(rawClinic)
+            ? rawClinic[0]?.name ?? null
+            : (rawClinic as { name?: string } | undefined)?.name ?? null;
+          setClinicName(resolved);
+        }
+      } catch (err) {
+        console.error("[DashboardLayout] Error fetching user data:", err);
+      } finally {
+        if (!cancelled) setIsUserLoading(false);
+      }
+    }
+
+    fetchUserData();
+    return () => { cancelled = true; };
+  }, [supabase]);
+
+  // ── Sign-out handler ────────────────────────────────────────────────────
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }, [supabase, router]);
 
   const showBroadcast = broadcastActive && !!broadcastMessage && !broadcastDismissed;
 
@@ -369,7 +465,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             >
               <X className="h-4 w-4" />
             </button>
-            <SidebarContent pathname={pathname} isProActive={isProActive} onCloseMobile={() => setMobileOpen(false)} />
+            <SidebarContent pathname={pathname} isProActive={isProActive} onCloseMobile={() => setMobileOpen(false)} userName={userName} userEmail={userEmail} isUserLoading={isUserLoading} onSignOut={handleSignOut} />
           </aside>
 
           {/* ── Desktop sidebar (fixed) ── */}
@@ -382,7 +478,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             )}
             aria-label="Desktop navigation"
           >
-            <SidebarContent pathname={pathname} isProActive={isProActive} />
+            <SidebarContent pathname={pathname} isProActive={isProActive} userName={userName} userEmail={userEmail} isUserLoading={isUserLoading} onSignOut={handleSignOut} />
           </aside>
 
           {/* ── Right panel (header + main) ── */}
@@ -446,7 +542,20 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/30 to-teal-500/20 text-emerald-400 ring-1 ring-emerald-500/20">
                     <User className="h-3 w-3" strokeWidth={2} />
                   </span>
-                  <span className="hidden sm:block">Dr. Admin</span>
+                  <span className="hidden sm:block">
+                    {isUserLoading ? (
+                      <span className="inline-block h-3 w-16 animate-pulse rounded bg-slate-700/60" />
+                    ) : (
+                      <>
+                        {clinicName ?? userName ?? "Dashboard"}
+                        {userRole && (
+                          <span className="ml-1.5 rounded-md border border-slate-700/50 bg-slate-800/60 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-slate-500">
+                            {userRole}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </span>
                   <ChevronDown className="h-3 w-3 text-slate-600" strokeWidth={2} />
                 </button>
               </div>

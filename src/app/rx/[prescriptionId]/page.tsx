@@ -11,6 +11,9 @@ interface Prescription {
   notes: string | null;
   created_at: string;
   clinic_id: string | null;
+  // doctor_id is stamped at prescription-creation time so this public page
+  // can resolve doctor details without needing the patient to be logged in.
+  doctor_id: string | null;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -21,21 +24,75 @@ export default async function RxPage({
 }) {
   const { prescriptionId } = await params;
 
-  // ── Fetch from Supabase ──
   const supabase = await createClient();
-  const { data, error } = await supabase
+
+  // ── 1. Fetch the prescription (includes doctor_id + clinic_id) ────────────
+  const { data: rxData, error: rxError } = await supabase
     .from('prescriptions')
-    .select('id, patient_name, medications, advice, notes, created_at, clinic_id')
+    .select('id, patient_name, medications, advice, notes, created_at, clinic_id, doctor_id')
     .eq('id', prescriptionId)
     .maybeSingle();
 
-  if (error || !data) {
+  if (!rxData) {
+    if (rxError) console.error('[RxPage] Error fetching prescription:', rxError);
     notFound();
   }
 
-  const rx = data as Prescription;
+  const rx = rxData as Prescription;
 
-  // ── Safe-parse JSONB medications ──
+  // ── 2. Resolve doctor_id: prefer the stamped column, fall back to the
+  //       clinic admin profile (covers prescriptions created before the column
+  //       was added).
+  let resolvedDoctorId: string | null = rx.doctor_id;
+
+  if (!resolvedDoctorId && rx.clinic_id) {
+    const { data: adminProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('clinic_id', rx.clinic_id)
+      .eq('role', 'admin')
+      .maybeSingle();
+    resolvedDoctorId = adminProfile?.id ?? null;
+  }
+
+  // ── 3. Parallel: clinic info + doctor profile + doctor credentials ─────────
+  const [clinicResult, doctorProfileResult, doctorRowResult] = await Promise.all([
+    rx.clinic_id
+      ? supabase
+        .from('clinics')
+        .select('name, address')
+        .eq('id', rx.clinic_id)
+        .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+
+    resolvedDoctorId
+      ? supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', resolvedDoctorId)
+        .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+
+    resolvedDoctorId
+      ? supabase
+        .from('doctors')
+        .select('qualifications, specialization, signature_url')
+        .eq('id', resolvedDoctorId)
+        .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  const clinic = clinicResult.data as { name: string; address: string } | null;
+  const doctorProfile = doctorProfileResult.data as { full_name: string } | null;
+  const doctorRow = doctorRowResult.data as {
+    qualifications: string | null;
+    specialization: string | null;
+    signature_url: string | null;
+  } | null;
+
+  let signatureImageUrl: string | undefined = doctorRow?.signature_url ?? undefined;
+
+  // ── 5. Safe-parse JSONB medications ───────────────────────────────────────
   let medications: MedItem[] = [];
   if (Array.isArray(rx.medications)) {
     medications = rx.medications;
@@ -48,14 +105,16 @@ export default async function RxPage({
     }
   }
 
-  // ── Safe-parse advice ──
   const advice: string[] = Array.isArray(rx.advice) ? rx.advice : [];
   const notes: string = rx.notes ?? '';
 
+  const doctorName = doctorProfile?.full_name ?? undefined;
+  const doctorCredentials = doctorRow?.qualifications ?? undefined;
+  const doctorSpecialization = doctorRow?.specialization ?? undefined;
+
   return (
     <>
-      {/* ── Page Shell — soft gray background so doc pops ── */}
-      {/* Global print reset is in globals.css (@media print) */}
+      {/* ── Page Shell — soft gray background so the doc pops ── */}
       <div className="min-h-screen bg-slate-100 py-10 px-4 print:bg-white print:p-0 print:py-0">
 
         {/* ── Premium Prescription Document ── */}
@@ -66,14 +125,21 @@ export default async function RxPage({
           notes={notes}
           createdAt={rx.created_at}
           prescriptionId={rx.id}
+          clinicName={clinic?.name}
+          clinicAddress={clinic?.address}
+          doctorName={doctorName}
+          doctorCredentials={doctorCredentials}
+          doctorSpecialization={doctorSpecialization}
+          doctorSignatureName={doctorProfile?.full_name ?? undefined}
+          signatureImageUrl={signatureImageUrl}
         />
 
         {/* ── Viral "Powered by" Footer Banner (screen only, never printed) ── */}
-        <div className="print-hide mx-auto mt-8 w-full max-w-[794px]">
+        <div className="print:hidden mx-auto mt-8 w-full max-w-[794px]">
           <hr className="mb-6 border-slate-300" />
 
           <a
-            href="https://wa.me/923000000000?text=Hi%2C%20I%20am%20a%20doctor%20interested%20in%20Opedox"
+            href="https://wa.me/923334861007?text=Hi%2C%20I%20am%20a%20doctor%20interested%20in%20Opedox"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Get Opedox for your clinic — WhatsApp enquiry"
@@ -109,4 +175,3 @@ export default async function RxPage({
     </>
   );
 }
-
