@@ -60,7 +60,7 @@ export default async function RxPage({
     rx.clinic_id
       ? supabase
         .from('clinics')
-        .select('name, address')
+        .select('name, address, consultation_fee')
         .eq('id', rx.clinic_id)
         .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -82,7 +82,7 @@ export default async function RxPage({
       : Promise.resolve({ data: null, error: null }),
   ]);
 
-  const clinic = clinicResult.data as { name: string; address: string } | null;
+  const clinic = clinicResult.data as { name: string; address: string; consultation_fee: number | null } | null;
   const doctorProfile = doctorProfileResult.data as { full_name: string } | null;
   const doctorRow = doctorRowResult.data as {
     qualifications: string | null;
@@ -132,6 +132,7 @@ export default async function RxPage({
           doctorSpecialization={doctorSpecialization}
           doctorSignatureName={doctorProfile?.full_name ?? undefined}
           signatureImageUrl={signatureImageUrl}
+          consultationFee={clinic?.consultation_fee ?? null}
         />
 
         {/* ── Viral "Powered by" Footer Banner (screen only, never printed) ── */}

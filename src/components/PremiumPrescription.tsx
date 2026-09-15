@@ -26,6 +26,8 @@ export interface PremiumPrescriptionProps {
   doctorSignatureName?: string;
   /** If provided, renders an uploaded image for the signature. Overrides doctorSignatureName. */
   signatureImageUrl?: string;
+  /** Consultation fee in PKR — if set, rendered near the Rx ID in the footer. */
+  consultationFee?: number | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ export default function PremiumPrescription({
   doctorSpecialization,
   doctorSignatureName,
   signatureImageUrl,
+  consultationFee,
 }: PremiumPrescriptionProps) {
   const issueDate = formatDate(createdAt);
   const shortId = prescriptionId?.split('-')[0].toUpperCase() ?? null;
@@ -213,7 +216,7 @@ export default function PremiumPrescription({
 
         {/* ── Signature + Rx ID ───────────────────────────────────────── */}
         <div className="flex items-end justify-between">
-          {/* Left: Prescription ID */}
+          {/* Left: Prescription ID + Consultation Fee */}
           <div className="flex flex-col gap-1">
             {shortId && (
               <p className="text-[10px] font-mono text-slate-400">
@@ -224,6 +227,12 @@ export default function PremiumPrescription({
               <code className="text-[9px] font-mono text-slate-300 break-all max-w-[220px]">
                 {prescriptionId}
               </code>
+            )}
+            {consultationFee != null && (
+              <p className="mt-1.5 text-[11px] font-semibold text-slate-600">
+                Consultation Fee:{' '}
+                <span className="text-emerald-600">Rs. {consultationFee.toLocaleString()}</span>
+              </p>
             )}
           </div>
 

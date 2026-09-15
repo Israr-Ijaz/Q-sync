@@ -3,9 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // ─── Role → canonical dashboard path ────────────────────────────────────────
 const ROLE_PATHS: Record<string, string> = {
-  admin: '/dashboard/admin',
+  admin: '/dashboard/admin/staff',
   doctor: '/dashboard/doctor',
   receptionist: '/dashboard/receptionist',
+};
+
+// ─── Role → path prefix allowed to visit ────────────────────────────────────
+// Admin can visit any /dashboard/admin/** sub-route, and /dashboard/doctor
+const ROLE_PREFIXES: Record<string, string[]> = {
+  admin: ['/dashboard/admin', '/dashboard/doctor'],
+  doctor: ['/dashboard/doctor'],
+  receptionist: ['/dashboard/receptionist'],
 };
 
 /**
@@ -82,16 +90,18 @@ export async function proxy(request: NextRequest) {
 
     const role = (profile?.role as string | undefined) ?? 'receptionist';
     const canonicalPath = ROLE_PATHS[role] ?? '/dashboard/receptionist';
+    const allowedPrefixes = ROLE_PREFIXES[role] ?? ['/dashboard/receptionist'];
 
     // If the user is on a dashboard path that doesn't belong to their role,
-    // redirect them to their canonical path.
-    if (!pathname.startsWith(canonicalPath)) {
+    // redirect them to their canonical landing page.
+    const isAllowed = allowedPrefixes.some(prefix => pathname.startsWith(prefix));
+    if (!isAllowed) {
       return NextResponse.redirect(new URL(canonicalPath, request.url));
     }
   }
 
-  // ── 3. Skip login for already-authenticated users ────────────────────────
-  if (pathname === '/login' && user) {
+  // ── 3. Skip login/signup for already-authenticated users ───────────────────
+  if ((pathname === '/login' || pathname === '/signup') && user) {
     // Fetch role so we redirect to the right dashboard, not just /dashboard.
     const { data: profile } = await supabase
       .from('profiles')
@@ -112,12 +122,15 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image  (image optimisation files)
-     * - favicon.ico  (favicon file)
-     * - login        (public login page)
-     * - api/webhooks/whatsapp (Meta's webhook verification — also bypassed above)
+     * - _next/static  (static files)
+     * - _next/image   (image optimisation files)
+     * - favicon.ico   (favicon file)
+     * - api/webhooks/whatsapp (Meta's webhook — also bypassed above)
+     *
+     * NOTE: /login, /signup, /forgot-password, /update-password are intentionally
+     * NOT excluded here — the proxy must run on them so authenticated users are
+     * redirected away from auth pages to their dashboard.
      */
-    '/((?!_next/static|_next/image|favicon.ico|login|api/webhooks/whatsapp).*)',
+    '/((?!_next/static|_next/image|favicon\.ico|api/webhooks/whatsapp).*)',
   ],
 };

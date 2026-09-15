@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   Lock as LockIcon,
   Megaphone,
+  Building2,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
@@ -34,17 +36,27 @@ interface NavItem {
   icon: React.ElementType;
   /** If true, this item requires an active Pro subscription to navigate to */
   pro?: boolean;
+  /** If defined, only show this item to users with matching roles */
+  roles?: string[];
 }
 
 // ---------------------------------------------------------------------------
 // Navigation config
 // ---------------------------------------------------------------------------
 const NAV_ITEMS: NavItem[] = [
-  { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+  // Shared Doctor & Admin
+  { label: "Prescription Pad", href: "/dashboard/doctor", icon: Stethoscope, roles: ['admin', 'doctor'] },
+
+  // Admin Only
+  { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard, roles: ['admin'] },
+  { label: "QR Standee", href: "/dashboard/admin/qr-builder", icon: QrCode, roles: ['admin'] },
+  { label: "Clinic Settings", href: "/dashboard/admin/clinic", icon: Building2, roles: ['admin'] },
+  { label: "Staff Roster", href: "/dashboard/admin/staff", icon: UserCog, roles: ['admin'] },
+
+  // General / Placeholders
   { label: "Queue", href: "/dashboard/queue", icon: Users },
   { label: "Prescriptions", href: "/dashboard/prescriptions", icon: FileText, pro: true },
   { label: "Patients", href: "/dashboard/patients", icon: FolderHeart },
-  { label: "QR Standee", href: "/dashboard/admin/qr-builder", icon: QrCode },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
@@ -214,6 +226,7 @@ function SidebarContent({
   userName,
   userEmail,
   isUserLoading,
+  userRole,
   onSignOut,
 }: {
   pathname: string;
@@ -222,8 +235,12 @@ function SidebarContent({
   userName: string | null;
   userEmail: string | null;
   isUserLoading: boolean;
+  userRole: string | null;
   onSignOut: () => void;
 }) {
+  const filteredItems = NAV_ITEMS.filter(
+    (item) => !item.roles || (userRole && item.roles.includes(userRole))
+  );
   return (
     <div className="flex h-full flex-col">
       <SidebarBrand />
@@ -237,11 +254,11 @@ function SidebarContent({
 
       {/* Nav items */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2" aria-label="Main navigation">
-        {NAV_ITEMS.map((item) => (
+        {filteredItems.map((item) => (
           <NavLink
             key={item.href}
             item={item}
-            active={pathname.startsWith(item.href)}
+            active={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))}
             isProActive={isProActive}
             onClick={onCloseMobile}
           />
@@ -465,7 +482,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             >
               <X className="h-4 w-4" />
             </button>
-            <SidebarContent pathname={pathname} isProActive={isProActive} onCloseMobile={() => setMobileOpen(false)} userName={userName} userEmail={userEmail} isUserLoading={isUserLoading} onSignOut={handleSignOut} />
+            <SidebarContent pathname={pathname} isProActive={isProActive} onCloseMobile={() => setMobileOpen(false)} userName={userName} userEmail={userEmail} isUserLoading={isUserLoading} userRole={userRole} onSignOut={handleSignOut} />
           </aside>
 
           {/* ── Desktop sidebar (fixed) ── */}
@@ -478,7 +495,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             )}
             aria-label="Desktop navigation"
           >
-            <SidebarContent pathname={pathname} isProActive={isProActive} userName={userName} userEmail={userEmail} isUserLoading={isUserLoading} onSignOut={handleSignOut} />
+            <SidebarContent pathname={pathname} isProActive={isProActive} userName={userName} userEmail={userEmail} isUserLoading={isUserLoading} userRole={userRole} onSignOut={handleSignOut} />
           </aside>
 
           {/* ── Right panel (header + main) ── */}
@@ -610,6 +627,11 @@ const ROUTE_LABELS: Record<string, string> = {
   "/dashboard/prescriptions": "Prescriptions",
   "/dashboard/patients": "Patients",
   "/dashboard/settings": "Settings",
+  "/dashboard/admin": "Overview",
+  "/dashboard/admin/clinic": "Clinic Settings",
+  "/dashboard/admin/staff": "Staff Roster",
+  "/dashboard/admin/qr-builder": "QR Standee",
+  "/dashboard/doctor": "Prescription Pad",
 };
 
 function PageBreadcrumb({ pathname }: { pathname: string }) {

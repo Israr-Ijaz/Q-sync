@@ -1,109 +1,80 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Stethoscope, ShieldCheck, ArrowRight, Lock, Mail, Loader2 } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
-import { Button } from "@/components/ui/button";
+import { useState, useTransition } from "react";
+import {
+  Stethoscope,
+  ShieldCheck,
+  ArrowRight,
+  Lock,
+  Loader2,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { updatePasswordAction } from "@/actions/auth";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface LoginFormState {
-  email: string;
-  password: string;
-  loading: boolean;
-  error: string | null;
-}
+export default function UpdatePasswordPage() {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-export default function LoginPage() {
-  const router = useRouter();
-  const supabase = useRef(createClient()).current;
-
-  const [form, setForm] = useState<LoginFormState>({
-    email: "",
-    password: "",
-    loading: false,
-    error: null,
-  });
-
-  const handleChange = (field: keyof Pick<LoginFormState, "email" | "password">) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value, error: null }));
-    };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!form.email.trim() || !form.password.trim()) {
-      setForm((prev) => ({ ...prev, error: "Please fill in all fields." }));
+    setError(null);
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
       return;
     }
-    setForm((prev) => ({ ...prev, loading: true, error: null }));
-
-    try {
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: form.email.trim(),
-          password: form.password,
-        });
-
-      if (authError || !authData.user) {
-        setForm((prev) => ({
-          ...prev,
-          loading: false,
-          error: authError?.message ?? "Authentication failed. Please try again.",
-        }));
-        return;
-      }
-
-      // Fetch role to route doctor vs receptionist
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", authData.user.id)
-        .maybeSingle();
-
-      const role = (profile?.role as string | undefined) ?? "receptionist";
-      if (role === "admin") {
-        // Admins land directly on Staff Roster — the most actionable page.
-        router.push("/dashboard/admin/staff");
-      } else if (role === "doctor") {
-        router.push("/dashboard/doctor");
-      } else {
-        router.push("/dashboard/receptionist");
-      }
-    } catch (err) {
-      console.error("[Login] Unexpected error:", err);
-      setForm((prev) => ({
-        ...prev,
-        loading: false,
-        error: "An unexpected error occurred. Please try again.",
-      }));
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
     }
+
+    startTransition(async () => {
+      const result = await updatePasswordAction(password);
+      // If result returns (i.e. no redirect), it must be an error.
+      if (result?.error) {
+        setError(result.error);
+      }
+    });
   };
+
+  // Password strength indicator
+  const strength = (() => {
+    if (password.length === 0) return 0;
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    return score;
+  })();
+
+  const strengthLabel = ["", "Weak", "Fair", "Good", "Strong"][strength];
+  const strengthColor = [
+    "",
+    "bg-red-500",
+    "bg-amber-500",
+    "bg-yellow-400",
+    "bg-emerald-500",
+  ][strength];
 
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950">
 
-      {/* ── Ambient background radial glows ── */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0"
-      >
-        {/* Top-left emerald orb */}
+      {/* ── Ambient glows ── */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-emerald-500/10 blur-[120px]" />
-        {/* Bottom-right cyan orb */}
         <div className="absolute -bottom-40 -right-40 h-[480px] w-[480px] rounded-full bg-cyan-500/10 blur-[120px]" />
-        {/* Center subtle glow */}
         <div className="absolute top-1/2 left-1/2 h-[300px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-500/5 blur-[100px]" />
       </div>
 
-      {/* ── Architectural dot-grid overlay ── */}
+      {/* ── Dot-grid ── */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0"
@@ -114,7 +85,7 @@ export default function LoginPage() {
         }}
       />
 
-      {/* ── Main glassmorphic card ── */}
+      {/* ── Glassmorphic card ── */}
       <main className="relative z-10 w-full max-w-md px-4">
         <div
           className={cn(
@@ -124,9 +95,8 @@ export default function LoginPage() {
             "p-8 sm:p-10"
           )}
         >
-          {/* ── Brand identity badge ── */}
+          {/* ── Brand badge ── */}
           <header className="mb-8 flex flex-col items-center gap-4 text-center">
-            {/* Icon mark */}
             <div className="relative">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-400/30 to-cyan-400/20 blur-xl" />
               <div
@@ -145,116 +115,167 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Wordmark */}
             <div className="space-y-1">
               <h1 className="bg-gradient-to-r from-slate-100 via-white to-slate-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent">
-                Opedox Medical
+                Set New Password
               </h1>
               <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-                OPD Terminal Access
+                Opedox Medical
               </p>
             </div>
 
-            {/* Thin rule */}
             <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           </header>
 
-          {/* ── Login form ── */}
+          <p className="mb-6 text-center text-xs text-slate-400">
+            Choose a strong password for your Opedox account.
+          </p>
+
+          {/* ── Form ── */}
           <form
-            id="opedox-login-form"
+            id="update-password-form"
             onSubmit={handleSubmit}
             noValidate
             className="space-y-5"
           >
-            {/* Clinic Email / ID */}
+            {/* New Password */}
             <div className="space-y-1.5">
               <label
-                htmlFor="login-email"
+                htmlFor="up-password"
                 className="block text-xs font-medium text-slate-400"
               >
-                Clinic Email / Terminal ID
+                New Password
               </label>
-              <div className="relative">
-                <Mail
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
-                  aria-hidden="true"
-                />
-                <Input
-                  id="login-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="clinic@opedox.med"
-                  value={form.email}
-                  onChange={handleChange("email")}
-                  disabled={form.loading}
-                  className={cn(
-                    "h-11 pl-10 pr-4",
-                    "border-white/[0.08] bg-white/[0.04] text-slate-100",
-                    "placeholder:text-slate-600",
-                    "focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20",
-                    "transition-all duration-200",
-                    "dark:bg-white/[0.04] dark:border-white/[0.08]"
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="login-password"
-                  className="block text-xs font-medium text-slate-400"
-                >
-                  Password
-                </label>
-                <a
-                  href="/forgot-password"
-                  className="text-xs font-medium text-emerald-500/80 transition-colors hover:text-emerald-400"
-                >
-                  Forgot password?
-                </a>
-              </div>
               <div className="relative">
                 <Lock
                   className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
                   aria-hidden="true"
                 />
                 <Input
-                  id="login-password"
-                  type="password"
-                  autoComplete="current-password"
+                  id="up-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   placeholder="••••••••••"
-                  value={form.password}
-                  onChange={handleChange("password")}
-                  disabled={form.loading}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError(null);
+                  }}
+                  disabled={isPending}
                   className={cn(
-                    "h-11 pl-10 pr-4",
+                    "h-11 pl-10 pr-10",
+                    "border-white/[0.08] bg-white/[0.04] text-slate-100",
+                    "placeholder:text-slate-600",
+                    "focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20",
+                    "transition-all duration-200"
+                  )}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((p) => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors hover:text-slate-300 focus-visible:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+
+              {/* Strength meter */}
+              {password.length > 0 && (
+                <div className="space-y-1 pt-0.5">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "h-1 flex-1 rounded-full transition-all duration-300",
+                          i <= strength ? strengthColor : "bg-white/10"
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-right text-[10px] text-slate-500">
+                    {strengthLabel}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="up-confirm"
+                className="block text-xs font-medium text-slate-400"
+              >
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="up-confirm"
+                  type={showConfirm ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="••••••••••"
+                  value={confirm}
+                  onChange={(e) => {
+                    setConfirm(e.target.value);
+                    setError(null);
+                  }}
+                  disabled={isPending}
+                  className={cn(
+                    "h-11 pl-10 pr-10",
                     "border-white/[0.08] bg-white/[0.04] text-slate-100",
                     "placeholder:text-slate-600",
                     "focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20",
                     "transition-all duration-200",
-                    "dark:bg-white/[0.04] dark:border-white/[0.08]"
+                    confirm.length > 0 &&
+                      (confirm === password
+                        ? "border-emerald-500/40"
+                        : "border-red-500/40")
                   )}
                 />
+                <button
+                  type="button"
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                  onClick={() => setShowConfirm((p) => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors hover:text-slate-300 focus-visible:outline-none"
+                >
+                  {showConfirm ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </button>
               </div>
+              {confirm.length > 0 && confirm !== password && (
+                <p className="text-[10px] text-red-400">
+                  Passwords do not match
+                </p>
+              )}
             </div>
 
             {/* Inline error */}
-            {form.error && (
+            {error && (
               <p
                 role="alert"
                 className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400"
               >
-                {form.error}
+                {error}
               </p>
             )}
 
-            {/* Submit CTA */}
+            {/* Submit */}
             <button
-              id="login-submit-btn"
+              id="up-submit-btn"
               type="submit"
-              disabled={form.loading}
+              disabled={isPending}
               className={cn(
                 "group relative mt-2 flex h-11 w-full items-center justify-center gap-2 overflow-hidden",
                 "rounded-xl px-6 text-sm font-semibold text-white",
@@ -267,20 +288,18 @@ export default function LoginPage() {
                 "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:brightness-100 disabled:hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
               )}
             >
-              {/* Shine sweep on hover */}
               <span
                 aria-hidden="true"
                 className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-500 group-hover:translate-x-full"
               />
-
-              {form.loading ? (
+              {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  <span>Authenticating…</span>
+                  <span>Updating password…</span>
                 </>
               ) : (
                 <>
-                  <span>Sign In to Terminal</span>
+                  <span>Update Password</span>
                   <ArrowRight
                     className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
                     aria-hidden="true"
@@ -290,37 +309,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* ── Sign Up prompt ── */}
-          <div className="mt-6 text-center">
-            <p className="text-xs text-slate-500">
-              Don&rsquo;t have an account?{" "}
-              <a
-                href="/signup"
-                className="font-medium text-emerald-400 transition-colors hover:text-emerald-300"
-              >
-                Sign Up
-              </a>
-            </p>
-          </div>
-
-          {/* ── Staff notice ── */}
-          <div
-            id="staff-password-notice"
-            className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-4 py-3"
-          >
-            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400">
-              <svg viewBox="0 0 16 16" fill="currentColor" className="h-2.5 w-2.5" aria-hidden="true">
-                <path d="M8 1a1 1 0 0 1 .894.553l5.5 11A1 1 0 0 1 13.5 14h-11a1 1 0 0 1-.894-1.447l5.5-11A1 1 0 0 1 8 1Zm0 4a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 8 5Zm0 7a.875.875 0 1 0 0-1.75A.875.875 0 0 0 8 12Z" />
-              </svg>
-            </span>
-            <p className="text-[11px] leading-relaxed text-amber-500/80">
-              <span className="font-semibold text-amber-400">Staff members:</span> If you forgot your password, please contact your{" "}
-              <span className="font-medium text-amber-400">Clinic Admin</span> to reset it.
-            </p>
-          </div>
-
-          {/* ── Security footer badge ── */}
-          <footer className="mt-6">
+          {/* ── Security footer ── */}
+          <footer className="mt-8">
             <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
               <ShieldCheck
                 className="h-4 w-4 shrink-0 text-emerald-500"
