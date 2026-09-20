@@ -206,6 +206,7 @@ function AddStaffModal({ onClose, onCreated }: AddStaffModalProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [role, setRole] = useState<'doctor' | 'receptionist'>('doctor')
   const [credentials, setCredentials] = useState('')
+  const [queuePrefix, setQueuePrefix] = useState('')
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [generatedEmail, setGeneratedEmail] = useState('')
@@ -217,7 +218,7 @@ function AddStaffModal({ onClose, onCreated }: AddStaffModalProps) {
     e.preventDefault()
     setStatus('idle')
     startTransition(async () => {
-      const result = await createStaffAction({ fullName, password, role, credentials })
+      const result = await createStaffAction({ fullName, password, role, credentials, queuePrefix })
       if (result.error) { setErrorMsg(result.error); setStatus('error') }
       else {
         setGeneratedEmail(result.generatedEmail ?? '')
@@ -228,6 +229,8 @@ function AddStaffModal({ onClose, onCreated }: AddStaffModalProps) {
           full_name: role === 'doctor' ? `Dr. ${fullName}` : fullName,
           role,
           credentials,
+          queue_prefix: role === 'doctor' ? queuePrefix.toUpperCase() : null,
+          email: result.generatedEmail ?? null,
         })
       }
     })
@@ -331,6 +334,14 @@ function AddStaffModal({ onClose, onCreated }: AddStaffModalProps) {
                 )}
               </button>
             </div>
+
+            {/* Queue prefix row — doctors only */}
+            {role === 'doctor' && queuePrefix && (
+              <div className="px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-0.5">Queue Prefix</p>
+                <p className="text-sm font-mono font-bold text-emerald-400">{queuePrefix.toUpperCase()}</p>
+              </div>
+            )}
           </div>
 
           {/* Warning note */}
@@ -393,6 +404,37 @@ function AddStaffModal({ onClose, onCreated }: AddStaffModalProps) {
             <Input id="staff-credentials" type="text" value={credentials} onChange={e => setCredentials(e.target.value)} placeholder={role === 'doctor' ? 'e.g. MBBS, FCPS — Cardiology' : 'e.g. Front Desk'} disabled={isPending} className={cn(inputBase, 'px-4')} />
           </div>
 
+          {/* Queue Prefix — doctors only */}
+          {role === 'doctor' && (
+            <div className="space-y-1.5">
+              <label htmlFor="staff-queue-prefix" className="block text-xs font-medium text-slate-400">
+                Token Initials (Queue Prefix)
+                <span className="ml-1 text-slate-600">(2 letters, e.g. DR or AJ)</span>
+              </label>
+              <div className="relative">
+                <Input
+                  id="staff-queue-prefix"
+                  type="text"
+                  value={queuePrefix}
+                  onChange={e => {
+                    const val = e.target.value.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()
+                    setQueuePrefix(val)
+                    setStatus('idle')
+                  }}
+                  placeholder="e.g. AL"
+                  disabled={isPending}
+                  maxLength={2}
+                  required
+                  className={cn(inputBase, 'px-4 font-mono text-base tracking-widest uppercase')}
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-600">
+                  {queuePrefix.length}/2
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600">Tokens for this doctor will be formatted as <span className="font-mono text-slate-400">{queuePrefix || 'XX'}-01</span>, <span className="font-mono text-slate-400">{queuePrefix || 'XX'}-02</span>…</p>
+            </div>
+          )}
+
           {/* Password */}
           <div className="space-y-1.5">
             <label htmlFor="staff-password" className="block text-xs font-medium text-slate-400">Initial Password</label>
@@ -426,7 +468,7 @@ function AddStaffModal({ onClose, onCreated }: AddStaffModalProps) {
             <Button
               id="add-staff-submit-btn"
               type="submit"
-              disabled={isPending || !fullName || !password}
+              disabled={isPending || !fullName || !password || (role === 'doctor' && queuePrefix.length !== 2)}
               className={cn(
                 'group relative flex h-10 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl text-sm font-semibold text-white',
                 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-[0_0_16px_rgba(16,185,129,0.3)]',
@@ -455,9 +497,17 @@ function StaffCard({ member, onReset }: { member: StaffMember; onReset: (m: Staf
       </div>
       <div className="flex-1 min-w-0">
         <p className="truncate text-sm font-medium text-slate-100">{member.full_name ?? 'Unnamed Staff'}</p>
+        {member.email && (
+          <p className="truncate text-[11px] font-mono text-slate-500 mt-0.5">{member.email}</p>
+        )}
         {member.credentials && <p className="truncate text-xs text-slate-500 mt-0.5">{member.credentials}</p>}
       </div>
-      <div className="shrink-0 hidden sm:block">
+      <div className="shrink-0 hidden sm:flex items-center gap-2">
+        {member.role === 'doctor' && member.queue_prefix && (
+          <span className="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold font-mono text-emerald-400">
+            {member.queue_prefix}
+          </span>
+        )}
         <RoleBadge role={member.role} />
       </div>
       <button

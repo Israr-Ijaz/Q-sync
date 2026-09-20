@@ -88,7 +88,16 @@ export async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
 
-    const role = (profile?.role as string | undefined) ?? 'receptionist';
+    // If the user has no profile row or no role, their signup didn't
+    // complete — redirect them to the setup-incomplete page.
+    const role = profile?.role as string | undefined;
+    if (!role) {
+      if (!pathname.startsWith('/signup/setup-incomplete')) {
+        return NextResponse.redirect(new URL('/signup/setup-incomplete', request.url));
+      }
+      return response;
+    }
+
     const canonicalPath = ROLE_PATHS[role] ?? '/dashboard/receptionist';
     const allowedPrefixes = ROLE_PREFIXES[role] ?? ['/dashboard/receptionist'];
 
@@ -101,7 +110,12 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── 3. Skip login/signup for already-authenticated users ───────────────────
-  if ((pathname === '/login' || pathname === '/signup') && user) {
+  //    But allow /signup/setup-incomplete even for authenticated users (it's
+  //    the landing page for broken signups that need resolution).
+  if (
+    (pathname === '/login' || (pathname.startsWith('/signup') && !pathname.startsWith('/signup/setup-incomplete'))) &&
+    user
+  ) {
     // Fetch role so we redirect to the right dashboard, not just /dashboard.
     const { data: profile } = await supabase
       .from('profiles')
@@ -109,7 +123,12 @@ export async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
 
-    const role = (profile?.role as string | undefined) ?? 'receptionist';
+    const role = profile?.role as string | undefined;
+    if (!role) {
+      // Profile incomplete — send to setup page
+      return NextResponse.redirect(new URL('/signup/setup-incomplete', request.url));
+    }
+
     const canonicalPath = ROLE_PATHS[role] ?? '/dashboard/receptionist';
     return NextResponse.redirect(new URL(canonicalPath, request.url));
   }

@@ -11,6 +11,8 @@ interface SubscriptionContextValue {
   broadcastActive: boolean;
   /** Exposed for debugging — null means not yet resolved */
   clinicSlug: string | null;
+  /** Exposed for UI components that need the clinic name */
+  clinicName: string | null;
 }
 
 export const SubscriptionContext = createContext<SubscriptionContextValue>({
@@ -20,6 +22,7 @@ export const SubscriptionContext = createContext<SubscriptionContextValue>({
   broadcastMessage: "",
   broadcastActive: false,
   clinicSlug: null,
+  clinicName: null,
 });
 
 export function useSubscription(): SubscriptionContextValue {
@@ -37,6 +40,7 @@ export function SubscriptionProvider({
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastActive, setBroadcastActive] = useState(false);
   const [clinicSlug, setClinicSlug] = useState<string | null>(null);
+  const [clinicName, setClinicName] = useState<string | null>(null);
 
   // ── Shared Supabase client (stable across renders) ────────────────────────
   const supabase = createClient();
@@ -90,10 +94,10 @@ export function SubscriptionProvider({
 
       console.log("[SubscriptionProvider] Auth user id:", user.id);
 
-      // 2. Look up the user's profile to get their clinic_id and the clinic slug
+      // 2. Look up the user's profile to get their clinic_id and the clinic slug/name
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("clinic_id, clinics(slug)")
+        .select("clinic_id, clinics(name, slug)")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -115,10 +119,13 @@ export function SubscriptionProvider({
       }
 
       // Supabase returns joined rows as objects or arrays depending on relation type
-      const rawSlug = (profile as { clinics?: { slug?: string } | { slug?: string }[] }).clinics;
-      const resolvedSlug = Array.isArray(rawSlug)
-        ? rawSlug[0]?.slug ?? null
-        : (rawSlug as { slug?: string } | undefined)?.slug ?? null;
+      const rawClinic = (profile as { clinics?: { name?: string, slug?: string } | { name?: string, slug?: string }[] }).clinics;
+      const resolvedClinic = Array.isArray(rawClinic)
+        ? rawClinic[0]
+        : (rawClinic as { name?: string, slug?: string } | undefined);
+
+      const resolvedSlug = resolvedClinic?.slug ?? null;
+      const resolvedName = resolvedClinic?.name ?? null;
 
       if (!resolvedSlug) {
         console.error(
@@ -129,8 +136,9 @@ export function SubscriptionProvider({
         return;
       }
 
-      console.log("[SubscriptionProvider] Resolved clinic_slug:", resolvedSlug);
+      console.log("[SubscriptionProvider] Resolved clinic_slug:", resolvedSlug, "clinic_name:", resolvedName);
       setClinicSlug(resolvedSlug);
+      setClinicName(resolvedName);
 
       // 3. Fetch subscription + broadcast in parallel, both keyed by the real slug
       const [subResult, broadcastResult] = await Promise.all([
@@ -211,7 +219,7 @@ export function SubscriptionProvider({
 
   return (
     <SubscriptionContext.Provider
-      value={{ isProActive, isBetaTester, isLoading, broadcastMessage, broadcastActive, clinicSlug }}
+      value={{ isProActive, isBetaTester, isLoading, broadcastMessage, broadcastActive, clinicSlug, clinicName }}
     >
       {children}
     </SubscriptionContext.Provider>

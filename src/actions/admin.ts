@@ -146,6 +146,8 @@ export interface CreateStaffPayload {
   password: string
   role: 'doctor' | 'receptionist'
   credentials: string
+  /** Required when role === 'doctor'. Exactly 2 uppercase alpha characters. */
+  queuePrefix?: string
 }
 
 export interface CreateStaffResult extends ActionResult {
@@ -168,6 +170,14 @@ export async function createStaffAction(
   if (!payload.fullName?.trim()) return { error: 'Full name is required.' }
   if (!payload.password || payload.password.length < 6) {
     return { error: 'Password must be at least 6 characters.' }
+  }
+
+  // Validate queue prefix for doctors
+  if (payload.role === 'doctor') {
+    const prefix = payload.queuePrefix?.trim().toUpperCase() ?? ''
+    if (!/^[A-Z]{2}$/.test(prefix)) {
+      return { error: 'Queue Prefix must be exactly 2 letters (e.g. "AL").' }
+    }
   }
 
   // Fetch clinic name to build the generated email
@@ -201,18 +211,21 @@ export async function createStaffAction(
       ? formatDoctorName(payload.fullName)
       : payload.fullName
 
+  const profileInsert: Record<string, unknown> = {
+    id: authData.user.id,
+    clinic_id: profile.clinic_id,
+    role: payload.role,
+    full_name: finalName,
+    credentials: payload.credentials,
+  }
+
+  if (payload.role === 'doctor' && payload.queuePrefix) {
+    profileInsert.queue_prefix = payload.queuePrefix.trim().toUpperCase()
+  }
+
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .upsert(
-      {
-        id: authData.user.id,
-        clinic_id: profile.clinic_id,
-        role: payload.role,
-        full_name: finalName,
-        credentials: payload.credentials,
-      },
-      { onConflict: 'id' }
-    )
+    .upsert(profileInsert, { onConflict: 'id' })
 
   if (profileError) {
     console.error('[createStaffAction] Profile upsert error:', profileError)

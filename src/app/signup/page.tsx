@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { registerClinicWorkflow } from '@/actions/registerClinic'
+import { verifyOtpAndSetupClinic } from '@/actions/registerClinic'
 import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import {
   Shield,
@@ -30,6 +30,13 @@ import {
   KeyRound,
   ShieldCheck,
 } from 'lucide-react'
+
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from '@/components/ui/input-otp'
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -61,9 +68,7 @@ interface FormData {
   bankName: string
   bankIban: string
   easypaisaNumber: string
-  // Step 3 – Staff
-  receptionistName: string
-  receptionistPassword: string
+  // Step 3 – Doctors only
   doctors: Doctor[]
 }
 
@@ -79,8 +84,6 @@ const initialForm: FormData = {
   bankName: '',
   bankIban: '',
   easypaisaNumber: '',
-  receptionistName: '',
-  receptionistPassword: '',
   doctors: [{ id: '1', name: '', speciality: '', password: '' }],
 }
 
@@ -137,6 +140,9 @@ function FormInput({
   placeholder,
   value,
   onChange,
+  id,
+  inputRef,
+  onKeyDown,
 }: {
   label: string
   icon: React.ComponentType<{ size?: number; className?: string }>
@@ -144,22 +150,28 @@ function FormInput({
   placeholder: string
   value: string
   onChange: (v: string) => void
+  id?: string
+  inputRef?: React.RefObject<HTMLInputElement | null>
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
 }) {
   const [showPw, setShowPw] = useState(false)
   const isPassword = type === 'password'
 
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-xs font-medium tracking-wide text-subtle">
+      <label htmlFor={id} className="flex items-center gap-2 text-xs font-medium tracking-wide text-subtle">
         <Icon size={13} className="text-mint/70" />
         {label}
       </label>
       <div className="group relative">
         <input
+          id={id}
+          ref={inputRef as React.RefObject<HTMLInputElement>}
           type={isPassword ? (showPw ? 'text' : 'password') : type}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
           className="w-full rounded-xl border border-line bg-panel px-4 py-3 text-sm text-foreground placeholder:text-subtle/50 transition-all duration-200 outline-none focus:border-mint/50 focus:ring-1 focus:ring-mint/20 focus:shadow-[0_0_20px_var(--mint-glow)]"
         />
         {isPassword && (
@@ -556,9 +568,15 @@ export default function SignupPage() {
   const [isVerifying, setIsVerifying] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [otpError, setOtpError] = useState('')
+  const [registrationError, setRegistrationError] = useState('')
   const [generatedCredentials, setGeneratedCredentials] = useState<GeneratedCredential[]>([])
   const supabase = useRef(createClient()).current
   const hasMounted = useRef(false)
+
+  // Step 1 field refs for Enter-key navigation
+  const refPhone = useRef<HTMLInputElement | null>(null)
+  const refEmail = useRef<HTMLInputElement | null>(null)
+  const refPassword = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     hasMounted.current = true
@@ -606,64 +624,26 @@ export default function SignupPage() {
     }
   }, [form, supabase, goTo])
 
-  // ── Step 4: OTP Verification + auto-generate staff + registerClinicWorkflow
-  const handleVerifyOtp = useCallback(async () => {
-    if (otpCode.length !== 8) {
+  // ── Step 4: OTP Verification + full clinic seeding (single server action) ─────
+  // codeOverride: lets the onChange handler pass the fresh paste value directly,
+  // bypassing the stale React state closure that causes the length check to fail.
+  const handleVerifyOtp = useCallback(async (codeOverride?: string) => {
+    const sanitized = (codeOverride ?? otpCode).replace(/\D/g, '')
+    if (sanitized.length !== 8) {
       setOtpError('Please enter the full 8-digit code.')
       return
     }
 
     setIsVerifying(true)
     setOtpError('')
+    setRegistrationError('')
 
     try {
-      const sanitizedEmail = form.ownerEmail.trim().toLowerCase()
-
-      // 1. Verify OTP
-      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-        email: sanitizedEmail,
-        token: otpCode,
-        type: 'signup',
-      })
-
-      if (verifyError || !verifyData.user) {
-        setOtpError(verifyError?.message ?? 'Verification failed. Please check the code.')
-        setIsVerifying(false)
-        return
-      }
-
-      // 2. Extract user ID
-      const ownerId = verifyData.user.id
-
-      // 3. Auto-generate staff emails (must match backend sanitization exactly)
       const safeClinic = form.clinicName.toLowerCase().replace(/[^a-z0-9]/g, '')
-      const safeReceptionist = form.receptionistName.toLowerCase().replace(/[^a-z0-9]/g, '')
-      const receptionistEmail = `${safeReceptionist}@${safeClinic}.opedox.com`
-      const doctorCredentials = form.doctors.map((doc) => {
-        const safeDoc = doc.name.toLowerCase().replace(/[^a-z0-9]/g, '')
-        return {
-          email: `${safeDoc}@${safeClinic}.opedox.com`,
-          password: doc.password,
-          role: 'doctor' as const,
-          full_name: doc.name,
-          credentials: doc.speciality,
-        }
-      })
 
-      const staffPayload = [
-        {
-          email: receptionistEmail,
-          password: form.receptionistPassword,
-          role: 'receptionist' as const,
-          full_name: form.receptionistName,
-          credentials: '',
-        },
-        ...doctorCredentials,
-      ]
-
-      // 4. Run the server-side workflow
-      const result = await registerClinicWorkflow({
-        owner_id: ownerId,
+      const result = await verifyOtpAndSetupClinic({
+        email: form.ownerEmail.trim().toLowerCase(),
+        otp: sanitized,
         owner_name: form.ownerName,
         clinic: {
           name: form.clinicName,
@@ -675,43 +655,53 @@ export default function SignupPage() {
           bank_iban: form.bankIban,
           easypaisa_number: form.easypaisaNumber,
         },
-        staff: staffPayload,
+        staff: form.doctors
+          .filter((doc) => doc.name.trim() !== '')
+          .map((doc) => ({
+            full_name: doc.name,
+            password: doc.password,
+            credentials: doc.speciality,
+          })),
       })
 
       if ('error' in result) {
-        setOtpError(result.error)
+        console.error('[handleVerifyOtp] Server action failed:', result.error)
+        // OTP is already consumed — do not allow retry with same code.
+        // Show error and instruct user to restart.
+        setRegistrationError(result.error)
+        setOtpCode('')  // clear the input so they can't accidentally re-submit
         setIsVerifying(false)
         return
       }
 
-      // 5. Save generated credentials for display
-      setGeneratedCredentials([
-        {
-          role: 'Receptionist',
-          name: form.receptionistName,
-          email: receptionistEmail,
-          password: form.receptionistPassword,
-        },
-        ...form.doctors.map((doc) => {
-          const safeDoc = doc.name.toLowerCase().replace(/[^a-z0-9]/g, '')
-          return {
-            role: 'Doctor',
-            name: doc.name,
-            email: `${safeDoc}@${safeClinic}.opedox.com`,
-            password: doc.password,
-          }
-        }),
-      ])
+      // Build generated credentials list from the server's response
+      setGeneratedCredentials(
+        result.generatedStaff.map((s) => ({
+          role: 'Doctor',
+          name: s.name,
+          email: s.email,
+          password: s.password,
+        }))
+      )
 
-      // 6. Advance to success screen
       setIsVerifying(false)
       goTo(5)
     } catch (err) {
-      console.error('[handleVerifyOtp] Unexpected error:', err)
-      setOtpError('An unexpected error occurred. Please try again.')
+      console.error('[handleVerifyOtp] Unexpected client-side error:', err)
+      setRegistrationError('An unexpected error occurred. Please restart the signup flow.')
+      setOtpCode('')
       setIsVerifying(false)
     }
-  }, [form, slug, supabase, otpCode, goTo])
+  }, [form, slug, otpCode, goTo])
+
+  // ── Restart: OTP is consumed and auth user deleted on DB failure ────────────
+  // We can just re-run handleLaunch to recreate the auth user and send a new OTP.
+  const handleRestartSignup = useCallback(async () => {
+    setRegistrationError('')
+    setOtpError('')
+    setOtpCode('')
+    await handleLaunch()
+  }, [handleLaunch])
 
   const updateField = useCallback(
     <K extends keyof FormData>(key: K, value: FormData[K]) => {
@@ -824,35 +814,46 @@ export default function SignupPage() {
 
                 <div className="mt-8 space-y-5">
                   <FormInput
+                    id="signup-name"
                     label="Full Name"
                     icon={User}
                     placeholder="Dr. Ahmed Khan"
                     value={form.ownerName}
                     onChange={(v) => updateField('ownerName', v)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); refPhone.current?.focus() } }}
                   />
                   <FormInput
+                    id="signup-phone"
+                    inputRef={refPhone}
                     label="Admin Phone"
                     icon={Phone}
                     type="tel"
                     placeholder="+92 300 1234567"
                     value={form.ownerPhone}
                     onChange={(v) => updateField('ownerPhone', v)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); refEmail.current?.focus() } }}
                   />
                   <FormInput
+                    id="signup-email"
+                    inputRef={refEmail}
                     label="Admin Email"
                     icon={Mail}
                     type="email"
                     placeholder="admin@clinic.com"
                     value={form.ownerEmail}
                     onChange={(v) => updateField('ownerEmail', v)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); refPassword.current?.focus() } }}
                   />
                   <FormInput
+                    id="signup-password"
+                    inputRef={refPassword}
                     label="Master Password"
                     icon={Lock}
                     type="password"
                     placeholder="Min. 8 characters"
                     value={form.ownerPassword}
                     onChange={(v) => updateField('ownerPassword', v)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); goTo(2) } }}
                   />
                 </div>
 
@@ -980,35 +981,7 @@ export default function SignupPage() {
                   Set up accounts for each role. Login emails are auto-generated for your staff.
                 </p>
 
-                {/* Receptionist Card */}
-                <div className="mt-8 rounded-2xl border border-line bg-panel/50 p-5 sm:p-6">
-                  <div className="mb-5 flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
-                      <User size={18} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">Receptionist</h3>
-                      <p className="text-[11px] text-subtle">Front-desk access</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <FormInput
-                      label="Full Name"
-                      icon={User}
-                      placeholder="Sara Ali"
-                      value={form.receptionistName}
-                      onChange={(v) => updateField('receptionistName', v)}
-                    />
-                    <FormInput
-                      label="Password"
-                      icon={Lock}
-                      type="password"
-                      placeholder="Min. 8 characters"
-                      value={form.receptionistPassword}
-                      onChange={(v) => updateField('receptionistPassword', v)}
-                    />
-                  </div>
-                </div>
+
 
                 {/* Doctor Cards */}
                 <AnimatePresence initial={false}>
@@ -1155,20 +1128,43 @@ export default function SignupPage() {
                       <KeyRound size={13} className="text-mint/70" />
                       Verification Code
                     </label>
-                    <div className="group relative">
-                      <input
-                        type="text"
-                        inputMode="numeric"
+                    <div className="group relative flex justify-center">
+                      <InputOTP
                         maxLength={8}
-                        placeholder="00000000"
                         value={otpCode}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 8)
-                          setOtpCode(val)
-                          setOtpError('')
+                        onChange={(value) => {
+                          // Aggressively strip all non-numeric chars (handles paste with spaces/dashes)
+                          const sanitized = value.replace(/\D/g, '').slice(0, 8);
+                          setOtpCode(sanitized);
+                          setOtpError('');
+                          if (sanitized.length === 8 && !isVerifying) {
+                            // Pass the fresh value directly — do NOT rely on React state here.
+                            // State update (setOtpCode) is async; by the time setTimeout fires,
+                            // the old closure value would still be stale.
+                            setTimeout(() => handleVerifyOtp(sanitized), 0);
+                          }
                         }}
-                        className="w-full max-w-sm mx-auto rounded-xl border border-line bg-panel px-4 py-4 text-center text-2xl font-mono font-semibold tracking-[0.35em] text-foreground placeholder:text-subtle/30 placeholder:tracking-[0.35em] transition-all duration-200 outline-none focus:border-mint/50 focus:ring-1 focus:ring-mint/20 focus:shadow-[0_0_20px_var(--mint-glow)]"
-                      />
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && otpCode.replace(/\D/g, '').length === 8) {
+                            e.preventDefault();
+                            handleVerifyOtp(otpCode);
+                          }
+                        }}
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                          <InputOTPSlot index={1} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                          <InputOTPSlot index={2} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                          <InputOTPSlot index={3} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                        </InputOTPGroup>
+                        <InputOTPSeparator className="text-mint/40" />
+                        <InputOTPGroup>
+                          <InputOTPSlot index={4} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                          <InputOTPSlot index={5} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                          <InputOTPSlot index={6} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                          <InputOTPSlot index={7} className="w-12 h-14 text-xl border-mint/20 text-foreground" />
+                        </InputOTPGroup>
+                      </InputOTP>
                     </div>
                     {otpError && (
                       <motion.p
@@ -1181,17 +1177,44 @@ export default function SignupPage() {
                     )}
                   </div>
 
+                  {/* Registration error — OTP is consumed, restart required */}
+                  {registrationError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3.5 space-y-3"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-red-400">Clinic setup failed</p>
+                        <p className="text-xs text-red-300/80 leading-relaxed font-mono break-words">{registrationError}</p>
+                      </div>
+                      <p className="text-[11px] text-red-400/70 leading-relaxed">
+                        The previous verification code was consumed.
+                        Click below to request a fresh code and try again.
+                      </p>
+                      <button
+                        onClick={handleRestartSignup}
+                        disabled={isSubmitting}
+                        className="flex items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-300 transition-all hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSubmitting ? 'Requesting...' : 'Request New Code'}
+                      </button>
+                    </motion.div>
+                  )}
+
                   {/* Info hint */}
-                  <div className="rounded-xl border border-mint/10 bg-mint/5 px-4 py-3">
-                    <p className="text-xs text-subtle leading-relaxed">
-                      <span className="font-medium text-mint">Tip:</span> The code expires in 10 minutes. If you don&apos;t see the email, check your spam folder.
-                    </p>
-                  </div>
+                  {!registrationError && (
+                    <div className="rounded-xl border border-mint/10 bg-mint/5 px-4 py-3">
+                      <p className="text-xs text-subtle leading-relaxed">
+                        <span className="font-medium text-mint">Tip:</span> The code expires in 10 minutes. If you don&apos;t see the email, check your spam folder.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-10 flex gap-3">
                   <button
-                    onClick={handleVerifyOtp}
+                    onClick={() => handleVerifyOtp()}
                     disabled={isVerifying || otpCode.length !== 8}
                     className="group flex flex-1 items-center justify-center gap-2 rounded-xl bg-mint px-6 py-3.5 text-sm font-semibold text-background transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_30px_var(--mint-glow)] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
@@ -1374,8 +1397,7 @@ export default function SignupPage() {
                         Team Size
                       </p>
                       <p className="mt-1 text-sm font-medium text-foreground">
-                        1 Admin · {form.doctors.length} Doctor{form.doctors.length > 1 ? 's' : ''} · 1
-                        Receptionist
+                        1 Admin · {form.doctors.length} Doctor{form.doctors.length > 1 ? 's' : ''}
                       </p>
                     </div>
                   </div>

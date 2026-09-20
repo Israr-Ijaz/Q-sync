@@ -24,6 +24,7 @@ interface LoginFormState {
 export default function LoginPage() {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<LoginFormState>({
     email: "",
@@ -187,6 +188,12 @@ export default function LoginPage() {
                   value={form.email}
                   onChange={handleChange("email")}
                   disabled={form.loading}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      passwordRef.current?.focus();
+                    }
+                  }}
                   className={cn(
                     "h-11 pl-10 pr-4",
                     "border-white/[0.08] bg-white/[0.04] text-slate-100",
@@ -222,6 +229,7 @@ export default function LoginPage() {
                 />
                 <Input
                   id="login-password"
+                  ref={passwordRef}
                   type="password"
                   autoComplete="current-password"
                   placeholder="••••••••••"

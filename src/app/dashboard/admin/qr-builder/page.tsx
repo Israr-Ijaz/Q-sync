@@ -7,7 +7,8 @@
  * Dependency: react-qrcode-logo (npm install react-qrcode-logo)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSubscription } from '@/lib/subscription-context';
 import {
   Printer,
   QrCode,
@@ -72,14 +73,21 @@ function TextInput({
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 export default function QRBuilderPage() {
-  const [clinicName, setClinicName] = useState('Sunrise Clinic');
-  const [clinicSlug, setClinicSlug] = useState('sunrise-clinic');
+  const { clinicSlug: contextSlug, clinicName: contextName } = useSubscription();
+  const [clinicName, setClinicName] = useState('Loading...');
+  const [clinicSlug, setClinicSlug] = useState('loading');
   const [themeColor, setThemeColor] = useState<ThemeValue>('#25D366');
   const [qrPattern, setQrPattern] = useState<PatternValue>('dots');
 
-  const clinicUrl = `${YOUR_DOMAIN}/c/${clinicSlug || 'your-clinic'}`;
-  /** Alias kept for template references below */
-  const qrUrl = clinicUrl;
+  // Sync context into editable state
+  useEffect(() => {
+    if (contextName) setClinicName(contextName);
+    if (contextSlug) setClinicSlug(contextSlug);
+  }, [contextName, contextSlug]);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : YOUR_DOMAIN;
+  const liveUrl = `${origin}/clinic/${clinicSlug || 'your-clinic'}`;
+
   const activeTheme = THEMES.find((t) => t.value === themeColor) ?? THEMES[0];
   const activeColorCode = themeColor;
 
@@ -149,7 +157,7 @@ export default function QRBuilderPage() {
                 placeholder="e.g. sunrise-clinic"
               />
               <p className="mt-1.5 text-[10px] text-slate-600 font-mono truncate">
-                {qrUrl}
+                {liveUrl}
               </p>
             </div>
 
@@ -211,7 +219,7 @@ export default function QRBuilderPage() {
               {[
                 ['Theme', activeTheme.label],
                 ['Pattern', PATTERNS.find((p) => p.value === qrPattern)?.label ?? ''],
-                ['URL', qrUrl],
+                ['URL', liveUrl],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3">
                   <span className="text-slate-500 shrink-0">{k}</span>
@@ -310,13 +318,13 @@ export default function QRBuilderPage() {
                 }}
               >
                 <div className="w-36 h-36 md:w-44 md:h-44 mx-auto flex items-center justify-center">
-                  <PremiumQRCode data={clinicUrl} color={activeColorCode} pattern={qrPattern} />
+                  <PremiumQRCode data={liveUrl} color={activeColorCode} pattern={qrPattern} />
                 </div>
               </div>
 
               {/* URL hint */}
               <p className="text-xs text-slate-400 font-mono mt-2 mb-2 tracking-tight">
-                {qrUrl}
+                {liveUrl}
               </p>
 
               {/* ── 3-step instructions (mt-16 from spec) ── */}
