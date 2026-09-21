@@ -1478,7 +1478,7 @@ export default function DoctorDashboardPage() {
       .maybeSingle();
 
     if (error) {
-      console.error('[DoctorDashboard] Error fetching token:', error.message);
+      console.error('[DoctorDashboard] Error fetching token:', typeof error === 'string' ? error : (error as Error)?.message || error);
     }
 
     setCurrentToken(data ?? null);
@@ -1495,7 +1495,7 @@ export default function DoctorDashboardPage() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[DoctorDashboard] Error fetching templates:', error.message);
+      console.error('[DoctorDashboard] Error fetching templates:', typeof error === 'string' ? error : (error as Error)?.message || error);
     }
     setRxTemplates((data as RxTemplate[]) ?? []);
     setTemplatesLoading(false);
@@ -1672,7 +1672,7 @@ export default function DoctorDashboardPage() {
       .single();
 
     if (error) {
-      console.error('[DoctorDashboard] Failed to save template:', error.message);
+      console.error('[DoctorDashboard] Failed to save template:', typeof error === 'string' ? error : (error as Error)?.message || error);
       // Rollback the optimistic chip
       setRxTemplates((prev) => prev.filter((t) => t.id !== optimisticId));
     } else {
@@ -1712,7 +1712,7 @@ export default function DoctorDashboardPage() {
       .single();
 
     if (error) {
-      console.error('[DoctorDashboard] Failed to save prescription:', error.message);
+      console.error('[DoctorDashboard] Failed to save prescription:', typeof error === 'string' ? error : (error as Error)?.message || error);
       setIsSending(false);
       return;
     }
@@ -1768,7 +1768,7 @@ export default function DoctorDashboardPage() {
     const { error } = await updateTokenStatusAction(currentToken.id, 'completed');
 
     if (error) {
-      console.error('[DoctorDashboard] Failed to complete consultation:', error.message);
+      console.error('[DoctorDashboard] Failed to complete consultation:', typeof error === 'string' ? error : (error as Error)?.message || error);
       setIsCompleting(false);
       return;
     }
