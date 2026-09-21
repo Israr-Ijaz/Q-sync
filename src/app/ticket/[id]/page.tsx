@@ -12,12 +12,15 @@ import {
   Loader2,
   AlertCircle,
   Activity,
-  Stethoscope,
+  Copy,
+  Check,
+  Banknote,
+  ShieldCheck,
 } from 'lucide-react';
 import { getDoctorAverageConsultationTime } from '@/actions/queue';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-type TicketStatus = 'waiting' | 'almost' | 'called' | 'in_consultation' | 'completed';
+type TicketStatus = 'pending_arrival' | 'pending_payment' | 'waiting' | 'almost' | 'called' | 'in_consultation' | 'completed';
 
 interface TicketData {
   tokenNumber: string;
@@ -31,6 +34,11 @@ interface TicketData {
   issuedAt: string;
   clinicId: string;
   doctorId: string;
+  fee: number | null;
+  bankName: string | null;
+  accountTitle: string | null;
+  accountNumber: string | null;
+  whatsappNumber: string | null;
 }
 
 type PageProps = {
@@ -38,7 +46,27 @@ type PageProps = {
 };
 
 // ─── Status config ───────────────────────────────────────────────────────────
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<TicketStatus, any> = {
+  pending_arrival: {
+    label: 'Spot Reserved',
+    badgeColor: 'rgba(217,70,239,0.15)',
+    badgeBorder: 'rgba(217,70,239,0.4)',
+    textColor: '#d946ef',
+    glowColor: '#d946ef',
+    icon: Loader2,
+    gradient: 'linear-gradient(135deg, #2e1065 0%, #17101f 50%, #1f1a14 100%)',
+    tokenGlow: '#d946ef',
+  },
+  pending_payment: {
+    label: 'Pending Verification',
+    badgeColor: 'rgba(251,191,36,0.15)',
+    badgeBorder: 'rgba(251,191,36,0.4)',
+    textColor: '#fbbf24',
+    glowColor: '#fbbf24',
+    icon: Loader2,
+    gradient: 'linear-gradient(135deg, #2a1a0f 0%, #17101f 50%, #1f1a14 100%)',
+    tokenGlow: '#fbbf24',
+  },
   waiting: {
     label: 'Waiting',
     badgeColor: 'rgba(251,191,36,0.15)',
@@ -92,7 +120,7 @@ const STATUS_CONFIG = {
   },
 };
 
-const STATUS_CYCLE: TicketStatus[] = ['waiting', 'almost', 'called', 'in_consultation', 'completed'];
+const STATUS_CYCLE: TicketStatus[] = ['pending_arrival', 'pending_payment', 'waiting', 'almost', 'called', 'in_consultation', 'completed'];
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: TicketStatus }) {
@@ -167,16 +195,86 @@ function StatCard({ icon: Icon, label, value, accentColor }: { icon: React.Eleme
   );
 }
 
+// ─── Payment Processing Card ───────────────────────────────────────────────────
+function PaymentProcessingCard({ ticket }: { ticket: TicketData }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (ticket.accountNumber) {
+      navigator.clipboard.writeText(ticket.accountNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const waText = encodeURIComponent(
+    `Hello, here is my payment screenshot for Patient: ${ticket.patientName}`
+  );
+  const waUrl = ticket.whatsappNumber 
+    ? `https://wa.me/${ticket.whatsappNumber.replace(/[^0-9]/g, '')}?text=${waText}`
+    : '#';
+
+  return (
+    <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full rounded-3xl overflow-hidden" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.2)', backdropFilter: 'blur(20px)' }}>
+      <div className="p-6 flex flex-col items-center gap-4 text-center">
+        <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center animate-pulse">
+          <Banknote className="w-6 h-6 text-amber-400" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-white mb-1">Payment Required</h2>
+          <p className="text-sm text-zinc-400">Please pay the consultation fee to get your token number.</p>
+        </div>
+
+        <div className="w-full bg-black/20 rounded-xl p-4 border border-white/5 space-y-3 text-left mt-2">
+          <div className="flex justify-between items-center pb-3 border-b border-white/5">
+            <span className="text-sm text-zinc-400">Consultation Fee</span>
+            <span className="text-lg font-bold text-emerald-400">Rs. {ticket.fee ?? 0}</span>
+          </div>
+          <div className="flex justify-between items-center pt-1">
+            <span className="text-sm text-zinc-400">Bank Name</span>
+            <span className="text-sm font-semibold text-white">{ticket.bankName || 'N/A'}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-zinc-400">Account Title</span>
+            <span className="text-sm font-semibold text-white">{ticket.accountTitle || 'N/A'}</span>
+          </div>
+          
+          <div className="pt-2">
+            <span className="text-xs text-zinc-500 block mb-1">Account Number</span>
+            <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-2.5">
+              <span className="font-mono text-white tracking-wider">{ticket.accountNumber || 'N/A'}</span>
+              <button 
+                onClick={handleCopy}
+                className="p-1.5 hover:bg-white/10 rounded-md transition-colors"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-zinc-400" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #25D366, #128C7E)',
+            boxShadow: '0 4px 16px rgba(37,211,102,0.3)',
+          }}
+        >
+          📱 Send Screenshot on WhatsApp
+        </a>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Payment Status Badge ────────────────────────────────────────────────────
 // Shows live payment verification state; updates in real-time with the receptionist.
 function PaymentStatusBadge({
   mode,
-  tokenNumber,
-  rawTokenNumber,
 }: {
   mode: 'pending' | 'cash' | 'online_transfer';
-  tokenNumber: string;
-  rawTokenNumber: number;
 }) {
   const verified = mode === 'cash' || mode === 'online_transfer';
   const label =
@@ -185,10 +283,6 @@ function PaymentStatusBadge({
       : mode === 'online_transfer'
       ? '✅ Payment Verified (Online)'
       : '⏳ Awaiting Payment Verification';
-
-  const waText = encodeURIComponent(
-    `Hello, here is my payment screenshot for Token ${tokenNumber} (Token #${rawTokenNumber})`
-  );
 
   return (
     <motion.div
@@ -216,35 +310,6 @@ function PaymentStatusBadge({
           {label}
         </motion.p>
       </AnimatePresence>
-
-      {/* WhatsApp CTA — only shown while payment is still pending */}
-      <AnimatePresence>
-        {!verified && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="overflow-hidden"
-          >
-            <a
-              href={`https://wa.me/923000000000?text=${waText}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
-              style={{
-                background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                boxShadow: '0 4px 16px rgba(37,211,102,0.3)',
-              }}
-            >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
-              </svg>
-              📱 Send Screenshot on WhatsApp
-            </a>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
@@ -268,7 +333,7 @@ export default function TicketPage({ params }: PageProps) {
     async function fetchTicketDetails() {
       const { data, error } = await supabase
         .from('tokens')
-        .select(`patient_name, token_number, status, payment_mode, created_at, clinic_id, doctor_id, clinics (name)`)
+        .select(`patient_name, token_number, status, payment_mode, created_at, clinic_id, doctor_id, clinics (name, consultation_fee, payment_bank_name, payment_account_title, payment_account_number, clinic_whatsapp_number)`)
         .eq('id', id)
         .single();
 
@@ -285,15 +350,15 @@ export default function TicketPage({ params }: PageProps) {
       const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       // Calculate real people ahead based on token numbers at the same clinic
-      const { count } = await supabase
+      const { count, error: countError } = await supabase
         .from('tokens')
         .select('*', { count: 'exact', head: true })
         .eq('clinic_id', data.clinic_id)
         .eq('doctor_id', data.doctor_id)
-        .in('status', ['waiting', 'almost'])
+        .eq('status', 'waiting')
         .lt('token_number', data.token_number);
 
-      const realPeopleAhead = count || 0;
+      const realPeopleAhead = countError ? 0 : (count || 0);
       const { averageMinutes } = await getDoctorAverageConsultationTime(data.doctor_id);
       const calculatedWaitTime = realPeopleAhead * averageMinutes;
 
@@ -311,6 +376,11 @@ export default function TicketPage({ params }: PageProps) {
         issuedAt: formattedTime,
         clinicId: data.clinic_id,
         doctorId: data.doctor_id,
+        fee: clinicData?.consultation_fee ?? null,
+        bankName: clinicData?.payment_bank_name ?? null,
+        accountTitle: clinicData?.payment_account_title ?? null,
+        accountNumber: clinicData?.payment_account_number ?? null,
+        whatsappNumber: clinicData?.clinic_whatsapp_number ?? null,
       });
       setIsLoading(false);
     }
@@ -346,14 +416,14 @@ export default function TicketPage({ params }: PageProps) {
             const clinicId = payload.new.clinic_id as string;
             const doctorId = payload.new.doctor_id as string;
             const tokenNumber = payload.new.token_number as number;
-            const { count } = await supabase
+            const { count, error: countError } = await supabase
               .from('tokens')
               .select('*', { count: 'exact', head: true })
               .eq('clinic_id', clinicId)
               .eq('doctor_id', doctorId)
-              .in('status', ['waiting', 'almost'])
+              .eq('status', 'waiting')
               .lt('token_number', tokenNumber);
-            const realPeopleAhead = count ?? 0;
+            const realPeopleAhead = countError ? 0 : (count ?? 0);
             const { averageMinutes } = await getDoctorAverageConsultationTime(doctorId);
             setTicket((prev) =>
               prev
@@ -382,15 +452,15 @@ export default function TicketPage({ params }: PageProps) {
           const current = ticketRef.current;
           if (!current || (current.status !== 'waiting' && current.status !== 'almost')) return;
           
-          const { count } = await supabase
+          const { count, error: countError } = await supabase
             .from('tokens')
             .select('*', { count: 'exact', head: true })
             .eq('clinic_id', current.clinicId)
             .eq('doctor_id', current.doctorId)
-            .in('status', ['waiting', 'almost'])
+            .eq('status', 'waiting')
             .lt('token_number', current.rawTokenNumber);
             
-          const realPeopleAhead = count ?? 0;
+          const realPeopleAhead = countError ? 0 : (count ?? 0);
           const { averageMinutes } = await getDoctorAverageConsultationTime(current.doctorId);
           
           setTicket((prev) =>
@@ -509,35 +579,64 @@ export default function TicketPage({ params }: PageProps) {
         <main className="relative z-10 flex-1 flex flex-col items-center px-5 pb-36 gap-6 overflow-y-auto">
           <motion.div layout className="w-full flex justify-center pt-2"><StatusBadge status={ticket.status} /></motion.div>
 
-          {/* Central Token Card */}
-          <motion.div layout className="w-full rounded-3xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', backdropFilter: 'blur(40px)', boxShadow: `0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06) inset` }}>
-            <motion.div animate={{ background: `linear-gradient(90deg, ${config.tokenGlow}88, ${config.tokenGlow}44, ${config.tokenGlow}88)` }} transition={{ duration: 1.2 }} className="h-1 w-full" />
-            <div className="flex flex-col items-center py-10 px-6 gap-3">
-              <p className="text-[11px] text-zinc-600 uppercase tracking-[0.2em] font-bold">Your Token</p>
-              <div className="relative flex items-center justify-center">
-                <motion.div animate={{ boxShadow: [`0 0 40px ${config.tokenGlow}44, 0 0 80px ${config.tokenGlow}22`, `0 0 70px ${config.tokenGlow}77, 0 0 120px ${config.tokenGlow}44`, `0 0 40px ${config.tokenGlow}44, 0 0 80px ${config.tokenGlow}22`], scale: [1, 1.02, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="absolute inset-[-16px] rounded-3xl" />
-                <AnimatePresence mode="wait">
-                  <motion.h2 key={ticket.tokenNumber} initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1, textShadow: [`0 0 30px ${config.tokenGlow}88`, `0 0 60px ${config.tokenGlow}cc`, `0 0 30px ${config.tokenGlow}88`] }} exit={{ scale: 1.1, opacity: 0 }} transition={{ scale: { duration: 0.4, ease: [0.16, 1, 0.3, 1] }, opacity: { duration: 0.3 }, textShadow: { duration: 3, repeat: Infinity, ease: 'easeInOut' } }} className="relative text-[88px] font-black tracking-tight leading-none select-none" style={{ color: config.tokenGlow }}>
-                    {ticket.tokenNumber}
-                  </motion.h2>
-                </AnimatePresence>
-              </div>
-              <p className="text-xs text-zinc-600 font-medium mt-1">Issued at {ticket.issuedAt}</p>
-            </div>
-          </motion.div>
+          {ticket.status === 'pending_payment' ? (
+            <PaymentProcessingCard ticket={ticket} />
+          ) : (
+            <>
+              {/* Central Token Card */}
+              <motion.div layout className="w-full rounded-3xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', backdropFilter: 'blur(40px)', boxShadow: `0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06) inset` }}>
+                <motion.div animate={{ background: `linear-gradient(90deg, ${config.tokenGlow}88, ${config.tokenGlow}44, ${config.tokenGlow}88)` }} transition={{ duration: 1.2 }} className="h-1 w-full" />
+                <div className="flex flex-col items-center py-10 px-6 gap-3">
+                  <p className="text-[11px] text-zinc-600 uppercase tracking-[0.2em] font-bold">Your Token</p>
+                  <div className="relative flex items-center justify-center">
+                    <motion.div animate={{ boxShadow: [`0 0 40px ${config.tokenGlow}44, 0 0 80px ${config.tokenGlow}22`, `0 0 70px ${config.tokenGlow}77, 0 0 120px ${config.tokenGlow}44`, `0 0 40px ${config.tokenGlow}44, 0 0 80px ${config.tokenGlow}22`], scale: [1, 1.02, 1] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="absolute inset-[-16px] rounded-3xl" />
+                    <AnimatePresence mode="wait">
+                      <motion.h2 key={ticket.tokenNumber} initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1, textShadow: [`0 0 30px ${config.tokenGlow}88`, `0 0 60px ${config.tokenGlow}cc`, `0 0 30px ${config.tokenGlow}88`] }} exit={{ scale: 1.1, opacity: 0 }} transition={{ scale: { duration: 0.4, ease: [0.16, 1, 0.3, 1] }, opacity: { duration: 0.3 }, textShadow: { duration: 3, repeat: Infinity, ease: 'easeInOut' } }} className="relative text-[88px] font-black tracking-tight leading-none select-none" style={{ color: config.tokenGlow }}>
+                        {ticket.tokenNumber}
+                      </motion.h2>
+                    </AnimatePresence>
+                  </div>
+                  <p className="text-xs text-zinc-600 font-medium mt-1">Issued at {ticket.issuedAt}</p>
+                </div>
+              </motion.div>
 
-          {/* Stats grid */}
-          <motion.div layout className="w-full grid grid-cols-2 gap-3">
-            <StatCard icon={Users} label="Ahead of you" value={ticket.status === 'completed' || ticket.status === 'called' || ticket.status === 'in_consultation' ? '—' : ticket.peopleAhead} accentColor={config.tokenGlow} />
-            <StatCard icon={Clock} label="Est. wait" value={ticket.status === 'completed' ? 'Done' : (ticket.status === 'called' || ticket.status === 'in_consultation') ? 'Now!' : `${ticket.estimatedMinutes}m`} accentColor={config.tokenGlow} />
-          </motion.div>
+              {/* Stats grid */}
+              {ticket.status !== 'pending_arrival' && (
+                <motion.div layout className="w-full grid grid-cols-2 gap-3">
+                  <StatCard icon={Users} label="Ahead of you" value={ticket.status === 'completed' || ticket.status === 'called' || ticket.status === 'in_consultation' ? '—' : ticket.peopleAhead} accentColor={config.tokenGlow} />
+                  {ticket.peopleAhead === 0 && (ticket.status === 'waiting' || ticket.status === 'almost') ? (
+                    <motion.div
+                      layout
+                      className="flex flex-col items-center justify-center rounded-2xl px-3 py-3 bg-emerald-500/20 border border-emerald-500/40 animate-pulse text-center shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                    >
+                      <span className="text-emerald-400 font-bold text-[15px] leading-tight">You're Next!</span>
+                      <span className="text-emerald-300 text-[10px] mt-1 leading-tight uppercase tracking-wider font-semibold">Proceed to doctor</span>
+                    </motion.div>
+                  ) : (
+                    <StatCard icon={Clock} label="Est. wait" value={ticket.status === 'completed' ? 'Done' : (ticket.status === 'called' || ticket.status === 'in_consultation') ? 'Now!' : `${ticket.estimatedMinutes}m`} accentColor={config.tokenGlow} />
+                  )}
+                </motion.div>
+              )}
+              {ticket.status === 'pending_arrival' && (
+                <motion.div layout className="w-full rounded-2xl p-5 text-center" style={{ background: 'rgba(217,70,239,0.1)', border: '1px solid rgba(217,70,239,0.3)' }}>
+                  <p className="text-white font-bold text-lg mb-1">Spot Reserved!</p>
+                  <p className="text-zinc-300 text-sm">Please arrive at the clinic and pay at the desk to receive your live Queue Number.</p>
+                </motion.div>
+              )}
 
-          {/* Payment Verification Badge + WhatsApp CTA */}
-          <PaymentStatusBadge
-            mode={paymentMode}
-            tokenNumber={ticket.tokenNumber}
-            rawTokenNumber={ticket.rawTokenNumber}
-          />
+              {/* Payment Verification Badge */}
+              {ticket.paymentMode !== 'pending' && (
+                <PaymentStatusBadge
+                  mode={paymentMode}
+                />
+              )}
+            </>
+          )}
+
+          <p className="text-xs text-slate-500 text-center mt-6 flex items-center justify-center gap-1.5">
+            <ShieldCheck size={14} className="shrink-0" />
+            <span>Safe to close. You can restore this screen anytime by scanning the clinic QR code again.</span>
+          </p>
 
           {/* Status timeline */}
           <motion.div layout className="w-full rounded-2xl px-5 py-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>

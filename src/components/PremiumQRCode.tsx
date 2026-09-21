@@ -18,6 +18,8 @@ interface PremiumQRCodeProps {
   color: string;
   pattern?: string;
   logoUrl?: string;
+  width?: number;
+  height?: number;
 }
 
 // Inline SVG data-URI — "Q" badge fallback when no logoUrl is provided.
@@ -34,7 +36,7 @@ function getShapes(pattern?: string) {
   } as const;
 }
 
-export default function PremiumQRCode({ data, color, pattern, logoUrl }: PremiumQRCodeProps) {
+export default function PremiumQRCode({ data, color, pattern, logoUrl, width = 300, height = 300 }: PremiumQRCodeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const qrRef        = useRef<QRCodeStyling | null>(null);
 
@@ -45,8 +47,8 @@ export default function PremiumQRCode({ data, color, pattern, logoUrl }: Premium
     const { dotShape, cornerDotShape, cornerSquareShape } = getShapes(pattern);
 
     const qrCode = new QRCodeStyling({
-      width: 300,
-      height: 300,
+      width,
+      height,
       type: 'svg',           // resolution-independent — perfect for print
       data,
       image: logoUrl ?? FALLBACK_LOGO,
@@ -94,6 +96,8 @@ export default function PremiumQRCode({ data, color, pattern, logoUrl }: Premium
     const { dotShape, cornerDotShape, cornerSquareShape } = getShapes(pattern);
 
     qrRef.current.update({
+      width,
+      height,
       data,
       image: logoUrl ?? FALLBACK_LOGO,
       dotsOptions: {
@@ -109,7 +113,7 @@ export default function PremiumQRCode({ data, color, pattern, logoUrl }: Premium
         color,
       },
     });
-  }, [data, color, pattern, logoUrl]);
+  }, [data, color, pattern, logoUrl, width, height]);
 
   return (
     <div

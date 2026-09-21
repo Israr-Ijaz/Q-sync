@@ -34,7 +34,7 @@ export default async function ClinicSettingsPage() {
 
   const { data: clinic } = await supabase
     .from('clinics')
-    .select('id, name, address, consultation_fee')
+    .select('id, name, address, consultation_fee, payment_bank_name, payment_account_title, payment_account_number, clinic_whatsapp_number')
     .eq('id', profile.clinic_id)
     .maybeSingle()
 
@@ -45,7 +45,7 @@ export default async function ClinicSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold text-white">Clinic Settings</h1>
         <p className="text-slate-400 mt-1.5 text-sm">
-          Update your clinic&apos;s name, address, and consultation fee displayed on every prescription.
+          Update your clinic&apos;s name, address, consultation fee, and payment details.
         </p>
       </div>
 
@@ -55,6 +55,10 @@ export default async function ClinicSettingsPage() {
           initialName={clinic?.name ?? ''}
           initialAddress={clinic?.address ?? ''}
           initialFee={(clinic as { consultation_fee?: number | null } | null)?.consultation_fee ?? null}
+          initialPaymentBankName={(clinic as any)?.payment_bank_name ?? null}
+          initialPaymentAccountTitle={(clinic as any)?.payment_account_title ?? null}
+          initialPaymentAccountNumber={(clinic as any)?.payment_account_number ?? null}
+          initialClinicWhatsappNumber={(clinic as any)?.clinic_whatsapp_number ?? null}
         />
       </div>
     </div>

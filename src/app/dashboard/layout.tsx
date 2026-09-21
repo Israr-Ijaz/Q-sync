@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Users,
@@ -72,10 +73,7 @@ function SidebarBrand() {
       className="group flex h-16 shrink-0 items-center gap-3 px-5 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
     >
       {/* Icon mark */}
-      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-400/20 to-cyan-400/10 blur-sm opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        <Stethoscope className="relative h-4 w-4 text-emerald-400" strokeWidth={1.75} />
-      </div>
+      <Image src="/icon.png" alt="Opedox Logo" width={32} height={32} className="rounded-xl shadow-sm" />
       {/* Wordmark */}
       <div className="flex flex-col leading-none">
         <span className="bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-[0.9rem] font-semibold tracking-tight text-transparent">
@@ -367,7 +365,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   }, [mobileOpen]);
 
   return (
-      <div className="flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div className="flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-100 print:overflow-visible print:h-auto print:block">
 
         {/* ── Global Broadcast Banner ── */}
         {showBroadcast && (
@@ -452,7 +450,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         )}
 
         {/* ── Main flex row (sidebar + content) ── */}
-        <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <div className="relative flex min-h-0 flex-1 overflow-hidden print:overflow-visible print:block">
 
           {/* ── Mobile drawer backdrop ── */}
           {mobileOpen && (
@@ -466,7 +464,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           {/* ── Mobile sidebar drawer ── */}
           <aside
             className={cn(
-              "fixed inset-y-0 left-0 z-40 w-64 lg:hidden",
+              "fixed inset-y-0 left-0 z-40 w-64 lg:hidden print:hidden",
               "border-r border-slate-800/80",
               "bg-slate-900/95 backdrop-blur-xl",
               "transition-transform duration-300 ease-in-out",
@@ -488,7 +486,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           {/* ── Desktop sidebar (fixed) ── */}
           <aside
             className={cn(
-              "hidden lg:flex lg:w-64 lg:flex-col",
+              "hidden lg:flex lg:w-64 lg:flex-col print:hidden",
               "fixed inset-y-0 left-0 z-20",
               "border-r border-slate-800/80",
               "bg-slate-900/40 backdrop-blur-xl"
@@ -499,12 +497,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </aside>
 
           {/* ── Right panel (header + main) ── */}
-          <div className="flex flex-1 flex-col lg:pl-64">
+          <div className="flex flex-1 flex-col lg:pl-64 print:block print:pl-0">
 
             {/* ── Sticky top header ── */}
             <header
               className={cn(
-                "sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between",
+                "sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between print:hidden",
                 "border-b border-slate-800/60",
                 "bg-slate-950/80 backdrop-blur-xl",
                 "px-4 sm:px-6"
@@ -580,7 +578,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
             {/* ── Main content area ── */}
             <main
-              className="flex-1 overflow-y-auto"
+              className="flex-1 overflow-y-auto print:overflow-visible print:block"
               id="dashboard-main-content"
             >
               {/* Subtle ambient top glow inherited from login aesthetic */}
@@ -594,7 +592,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               />
 
               {/* Content wrapper */}
-              <div className="relative z-10 min-h-full p-5 sm:p-7">
+              <div className="relative z-10 min-h-full p-5 sm:p-7 print:p-0 print:block">
                 {children}
               </div>
             </main>

@@ -20,6 +20,8 @@ import {
   Ticket,
   Building2,
   Link2,
+  CheckCircle,
+  User,
 } from 'lucide-react';
 import PremiumQRCode from '@/components/PremiumQRCode';
 
@@ -78,6 +80,11 @@ export default function QRBuilderPage() {
   const [clinicSlug, setClinicSlug] = useState('loading');
   const [themeColor, setThemeColor] = useState<ThemeValue>('#25D366');
   const [qrPattern, setQrPattern] = useState<PatternValue>('dots');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Sync context into editable state
   useEffect(() => {
@@ -85,7 +92,7 @@ export default function QRBuilderPage() {
     if (contextSlug) setClinicSlug(contextSlug);
   }, [contextName, contextSlug]);
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : YOUR_DOMAIN;
+  const origin = isMounted && typeof window !== 'undefined' ? window.location.origin : YOUR_DOMAIN;
   const liveUrl = `${origin}/clinic/${clinicSlug || 'your-clinic'}`;
 
   const activeTheme = THEMES.find((t) => t.value === themeColor) ?? THEMES[0];
@@ -94,32 +101,53 @@ export default function QRBuilderPage() {
   return (
     <>
       {/* ── Print Engine Hijack ──────────────────────────────────────────
-          Hides ALL Next.js layout chrome (sidebars, navbars, body scroll)
-          and makes only #print-standee visible on the printed page.
+          Forces correct print colors and removes browser chrome
       ─────────────────────────────────────────────────────────────────── */}
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          @page { size: A4 portrait; margin: 0; }
-          #print-standee, #print-standee * { visibility: visible; }
-          #print-standee {
-            position: absolute; left: 0; top: 0;
-            width: 100%; height: 100vh;
-            margin: 0; padding: 2cm;
-            box-shadow: none !important;
-            border: none !important;
-            background: #fff !important;
+          /* Hide absolutely everything on the page */
+          body * {
+            visibility: hidden;
+          }
+          
+          /* Make only the standee and its children visible */
+          #printable-standee, #printable-standee * {
+            visibility: visible;
+          }
+          
+          /* Rip the standee out of its layout and pin it to the paper */
+          #printable-standee {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 210mm;
+            height: 297mm;      /* Lock exactly to A4 height */
+            max-height: 297mm;  /* Prevent overflow */
+            overflow: hidden;   /* Clip anything that tries to spill over */
+            page-break-inside: avoid;
+            margin: 0;
+            padding: 0;
+          }
+
+          /* Force background colors and remove browser margins */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          @page {
+            margin: 0;
+            size: A4 portrait;
           }
         }
       `}</style>
 
-      <div className="w-full max-w-7xl mx-auto p-6 lg:p-10">
-        <div className="flex flex-col lg:flex-row gap-10 items-start justify-center w-full">
+      <div className="w-full max-w-7xl mx-auto p-6 lg:p-10 print:p-0 print:block">
+        <div className="flex flex-col lg:flex-row gap-10 items-start justify-center w-full print:block">
 
         {/* ════════════════════════════════════════════════════════════
             LEFT PANEL — Controls
         ════════════════════════════════════════════════════════════ */}
-        <aside className="w-full lg:w-1/3 flex-shrink-0 flex flex-col gap-6 border border-slate-800 rounded-2xl overflow-hidden bg-slate-900/40">
+        <aside className="w-full lg:w-1/3 flex-shrink-0 flex flex-col gap-6 border border-slate-800 rounded-2xl overflow-hidden bg-slate-900/40 print:hidden">
 
           {/* Header */}
           <div className="px-6 py-5 border-b border-slate-800">
@@ -246,11 +274,11 @@ export default function QRBuilderPage() {
         {/* ════════════════════════════════════════════════════════════
             RIGHT PANEL — Live A4 Preview
         ════════════════════════════════════════════════════════════ */}
-        <div className="w-full lg:w-2/3 flex flex-col items-center justify-center min-w-0 relative">
+        <div className="w-full lg:w-2/3 flex flex-col items-center justify-center min-w-0 relative print:block print:w-full">
 
           {/* Dot-grid backdrop */}
           <div
-            className="absolute inset-0 pointer-events-none"
+            className="absolute inset-0 pointer-events-none print:hidden"
             style={{
               backgroundImage: 'radial-gradient(circle,rgba(99,102,241,0.05) 1px,transparent 1px)',
               backgroundSize: '28px 28px',
@@ -259,8 +287,9 @@ export default function QRBuilderPage() {
 
           {/* ── A4 Standee ── */}
           <div
-            id="print-standee"
+            id="printable-standee"
             className="w-full max-w-[210mm] aspect-[1/1.414] bg-white shadow-2xl relative overflow-hidden flex flex-col rounded-2xl text-slate-900"
+            style={{ borderColor: themeColor, borderWidth: '16px' }}
           >
             {/* Top accent bar */}
             <div
@@ -268,18 +297,18 @@ export default function QRBuilderPage() {
               style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}99)` }}
             />
 
-            <div className="flex flex-col items-center flex-1 px-12 pt-8 pb-6">
+            <div className="flex flex-col items-center justify-start gap-3 pt-8 pb-20 mx-auto w-full px-12">
 
               {/* ── Clinic icon + name ── */}
-              <div className="flex flex-col items-center gap-3 mb-5">
+              <div className="flex flex-col items-center gap-3 mb-2">
                 <div
-                  className="w-16 h-16 rounded-[18px] flex items-center justify-center shadow-lg"
+                  className="w-28 h-28 rounded-[32px] flex items-center justify-center shadow-lg mb-4"
                   style={{
                     background: activeTheme.bg,
-                    border: `1.5px solid ${activeTheme.ring}`,
+                    border: `2px solid ${activeTheme.ring}`,
                   }}
                 >
-                  <Stethoscope size={30} style={{ color: themeColor }} />
+                  <Stethoscope size={64} style={{ color: themeColor }} />
                 </div>
 
                 <h2
@@ -290,18 +319,18 @@ export default function QRBuilderPage() {
 
                 {/* Thin rule */}
                 <div
-                  className="w-12 h-0.5 rounded-full"
+                  className="w-16 h-1 rounded-full"
                   style={{ background: `${themeColor}66` }}
                 />
               </div>
 
               {/* ── CTA text ── */}
-              <div className="flex flex-col items-center text-center mb-5 gap-1">
-                <p className="text-xl font-bold text-slate-700">
+              <div className="flex flex-col items-center text-center mb-2 gap-1">
+                <p className="text-3xl font-semibold text-slate-700 mt-4">
                   Scan to Join the Live Queue
                 </p>
                 <p
-                  className="text-2xl font-medium text-slate-500 mt-3 mb-0"
+                  className="text-2xl font-medium text-slate-500 mt-2 mb-0"
                   dir="rtl"
                   lang="ur"
                 >
@@ -311,53 +340,61 @@ export default function QRBuilderPage() {
 
               {/* ── QR Code — premium SVG via qr-code-styling ── */}
               <div
-                className="p-3 rounded-3xl mb-3"
+                className="relative w-[320px] h-[320px] min-w-[320px] min-h-[320px] flex-shrink-0 mx-auto my-4 p-5 rounded-3xl"
                 style={{
-                  border: `2px solid ${activeColorCode}22`,
+                  border: `2px solid ${activeColorCode}40`,
+                  background: `${activeColorCode}05`,
                   boxShadow: `0 8px 40px ${activeColorCode}18, 0 2px 8px rgba(0,0,0,0.06)`,
                 }}
               >
-                <div className="w-36 h-36 md:w-44 md:h-44 mx-auto flex items-center justify-center">
-                  <PremiumQRCode data={liveUrl} color={activeColorCode} pattern={qrPattern} />
+                {/* Overlapping Badge */}
+                <div 
+                  className="absolute -top-5 left-1/2 -translate-x-1/2 px-6 py-2 rounded-full text-sm font-bold tracking-widest text-white shadow-md whitespace-nowrap"
+                  style={{ background: activeColorCode }}
+                >
+                  SCAN WITH CAMERA
+                </div>
+                <div className="w-full h-full mx-auto flex items-center justify-center bg-white rounded-2xl shadow-sm p-3">
+                  <PremiumQRCode data={liveUrl} color={activeColorCode} pattern={qrPattern} width={320} height={320} />
                 </div>
               </div>
 
               {/* URL hint */}
-              <p className="text-xs text-slate-400 font-mono mt-2 mb-2 tracking-tight">
+              <p className="text-base text-slate-400 font-mono mt-2 mb-4 tracking-tight">
                 {liveUrl}
               </p>
 
-              {/* ── 3-step instructions (mt-16 from spec) ── */}
-              <div className="w-full mt-auto">
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-slate-400 text-center mb-2">
+              {/* ── 3-step instructions ── */}
+              <div className="w-full">
+                <p className="text-sm font-bold tracking-widest uppercase text-slate-400 text-center mb-3">
                   How it works
                 </p>
                 <div
-                  className="grid grid-cols-3 gap-3 mt-0"
+                  className="flex flex-row justify-center gap-8 w-full mt-4"
                   style={{
                     background: `${themeColor}06`,
-                    borderRadius: '16px',
+                    borderRadius: '24px',
                     border: `1px solid ${themeColor}14`,
-                    padding: '12px',
+                    padding: '24px',
                   }}
                 >
                   {([
                     { icon: Smartphone, step: '1', title: 'Open Camera', sub: 'Point at the code' },
-                    { icon: Scan, step: '2', title: 'Scan Code', sub: 'Auto-detects QR' },
-                    { icon: Ticket, step: '3', title: 'Get Token', sub: 'Your live number' },
+                    { icon: CheckCircle, step: '2', title: 'Scan Code', sub: 'Auto-detects QR' },
+                    { icon: User, step: '3', title: 'Get Token', sub: 'Your live number' },
                   ] as { icon: React.ElementType; step: string; title: string; sub: string }[]).map(
                     ({ icon: StepIcon, step, title, sub }) => (
-                      <div key={step} className="flex flex-col items-center gap-2 text-center">
+                      <div key={step} className="flex flex-col items-center gap-4 text-center">
                         <div
-                          className="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-black shadow-sm"
+                          className="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-black shadow-sm"
                           style={{ background: themeColor }}
                         >
                           {step}
                         </div>
-                        <StepIcon size={17} className="text-slate-400" />
+                        <StepIcon size={40} style={{ color: themeColor }} className="opacity-80" />
                         <div>
-                          <p className="text-[12px] font-semibold text-slate-700 leading-none">{title}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>
+                          <p className="text-xl font-bold text-slate-700 leading-none">{title}</p>
+                          <p className="text-sm text-slate-500 mt-2">{sub}</p>
                         </div>
                       </div>
                     )
@@ -367,14 +404,11 @@ export default function QRBuilderPage() {
             </div>
 
             {/* ── Footer ── */}
-            <div
-              className="shrink-0 px-16 py-4 flex items-center justify-between"
-              style={{ borderTop: `1px solid ${themeColor}14` }}
-            >
-              <p className="text-[10px] text-slate-400 tracking-widest uppercase font-medium">
+            <div className="absolute bottom-4 left-0 w-full flex flex-col items-center justify-center bg-white z-10">
+              <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
                 Powered by Opedox
               </p>
-              <p className="text-[10px] text-slate-400 font-mono">opedox.app</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">opedox.com</p>
             </div>
 
             {/* Bottom accent bar */}

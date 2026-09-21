@@ -50,7 +50,7 @@ export async function getDoctorAverageConsultationTime(doctorId: string) {
     .order('completed_at', { ascending: false })
     .limit(3)
 
-  if (error || !data || data.length < 3) {
+  if (error || !data || data.length === 0) {
     return { averageMinutes: 10 }
   }
 
@@ -59,7 +59,7 @@ export async function getDoctorAverageConsultationTime(doctorId: string) {
     const start = new Date(token.started_at)
     const end = new Date(token.completed_at)
     const durationMs = end.getTime() - start.getTime()
-    totalMinutes += durationMs / (1000 * 60)
+    totalMinutes += Math.max(1, Math.round(durationMs / 60000))
   }
 
   const averageMinutes = Math.round(totalMinutes / data.length)

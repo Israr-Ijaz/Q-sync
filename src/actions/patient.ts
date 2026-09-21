@@ -15,11 +15,12 @@ export async function joinQueue(
   const doctorId = (formData.get('doctor_id') as string | null)?.trim() || doctorIdArg?.trim() || '';
 
   // ── 2. Extract remaining form fields ─────────────────────────────────────────
-  const name  = (formData.get('patientName')  as string | null)?.trim() ?? '';
-  const phone = (formData.get('phoneNumber')  as string | null)?.trim() ?? '';
+  const name          = (formData.get('patientName')  as string | null)?.trim() ?? '';
+  const phone         = (formData.get('phoneNumber')  as string | null)?.trim() ?? '';
+  const paymentMethod = (formData.get('paymentMethod') as string | null)?.trim() ?? 'cash';
 
   // ── 3. Payload log — always visible in server console ────────────────────────
-  console.log('[joinQueue] TOKEN PAYLOAD:', { slug, doctorId, name, phone });
+  console.log('[joinQueue] TOKEN PAYLOAD:', { slug, doctorId, name, phone, paymentMethod });
 
   // ── 4. Strict guard — stops execution BEFORE any Supabase call ───────────────
   if (!doctorId) {
@@ -59,6 +60,23 @@ export async function joinQueue(
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
+  // ── Tab Recovery Check ───────────────────────────────────────────────────────
+  if (phone) {
+    const { data: existingToken } = await supabase
+      .from('tokens')
+      .select('id')
+      .eq('patient_phone', phone)
+      .in('status', ['waiting', 'pending_payment', 'in_consultation', 'pending_arrival'])
+      .gte('created_at', todayStart.toISOString())
+      .lt('created_at', tomorrowStart.toISOString())
+      .maybeSingle();
+
+    if (existingToken) {
+      console.log('[joinQueue] Tab recovery: returning existing token', existingToken.id);
+      return { success: true, tokenId: existingToken.id };
+    }
+  }
+
   const { count: todayCount } = await supabase
     .from('tokens')
     .select('id', { count: 'exact', head: true })
@@ -75,6 +93,8 @@ export async function joinQueue(
   console.log('[joinQueue] Inserting token:', { clinic_id: clinic.id, doctor_id: doctorId, token_display: tokenDisplay });
 
   // ── 9. Insert the token ───────────────────────────────────────────────────────
+  const initialStatus = paymentMethod === 'online' ? 'pending_payment' : 'pending_arrival';
+
   const { data: token, error: insertError } = await supabase
     .from('tokens')
     .insert([{
@@ -82,7 +102,7 @@ export async function joinQueue(
       doctor_id:     doctorId,
       patient_name:  name,
       patient_phone: phone,
-      status:        'waiting',
+      status:        initialStatus,
       token_number:  nextNumber,
       token_display: tokenDisplay,
     }])

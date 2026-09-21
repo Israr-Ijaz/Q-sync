@@ -42,6 +42,10 @@ export interface ClinicSettingsPayload {
   name: string
   address: string
   consultationFee: number | null
+  paymentBankName: string | null
+  paymentAccountTitle: string | null
+  paymentAccountNumber: string | null
+  clinicWhatsappNumber: string | null
 }
 
 // ─── Update Clinic Settings ───────────────────────────────────────────────────
@@ -65,6 +69,10 @@ export async function updateClinicSettingsAction(
   const updatePayload: Record<string, unknown> = {
     name: payload.name.trim(),
     address: payload.address?.trim() ?? '',
+    payment_bank_name: payload.paymentBankName?.trim() || null,
+    payment_account_title: payload.paymentAccountTitle?.trim() || null,
+    payment_account_number: payload.paymentAccountNumber?.trim() || null,
+    clinic_whatsapp_number: payload.clinicWhatsappNumber?.trim() || null,
   }
 
   // Only include consultation_fee if the column exists (null clears it)

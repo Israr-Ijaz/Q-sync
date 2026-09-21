@@ -10,6 +10,10 @@ import {
   CheckCircle2,
   Loader2,
   ChevronRight,
+  RefreshCcw,
+  Wallet,
+  Ticket,
+  MessageCircle,
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { joinQueue } from '@/actions/patient';
@@ -194,6 +198,7 @@ export default function ClinicPage({ params }: PageProps) {
   const [step, setStep] = useState<'select-doctor' | 'register'>('select-doctor');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online'>('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const supabase = useRef(createClient()).current;
@@ -241,17 +246,27 @@ export default function ClinicPage({ params }: PageProps) {
   }, [slug, supabase]);
 
   // ── Form submit handler ───────────────────────────────────────────────────
-  const handleFormSubmit = async (formData: FormData) => {
-    if (!selectedDoctor) return;
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedDoctor || isSubmitting) return;
+    
     setIsSubmitting(true);
 
-    const result = await joinQueue(formData, slug, selectedDoctor.id);
+    try {
+      const formData = new FormData(e.currentTarget);
+      const result = await joinQueue(formData, slug, selectedDoctor.id);
 
-    if (result?.error) {
-      alert(result.error);
+      if (result?.error) {
+        alert(result.error);
+      } else if (result?.success) {
+        window.location.href = `/ticket/${result.tokenId}`;
+        // Delay resetting state to prevent double-click while navigating
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    } catch (error) {
+      alert('An unexpected error occurred. Please try again.');
+    } finally {
       setIsSubmitting(false);
-    } else if (result?.success) {
-      window.location.href = `/ticket/${result.tokenId}`;
     }
   };
 
@@ -433,7 +448,7 @@ export default function ClinicPage({ params }: PageProps) {
           {step === 'register' && selectedDoctor && (
             <motion.form
               key="step-register"
-              action={handleFormSubmit}
+              onSubmit={handleFormSubmit}
               initial={{ opacity: 0, y: 40, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.97 }}
@@ -449,6 +464,24 @@ export default function ClinicPage({ params }: PageProps) {
                   boxShadow: '0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
                 }}
               >
+                <div className="bg-slate-800/50 rounded-xl p-4 mb-2 border border-slate-700">
+                  <h3 className="text-sm font-semibold text-white mb-3">Welcome! Get your token in 3 easy steps:</h3>
+                  <ul className="flex flex-col gap-3">
+                    <li className="flex items-start gap-2 text-sm text-slate-400">
+                      <User size={16} className="shrink-0 mt-0.5" />
+                      <span>1. Enter your Name and WhatsApp Number below.</span>
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-400">
+                      <Wallet size={16} className="shrink-0 mt-0.5" />
+                      <span>2. Choose how you want to pay.</span>
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-slate-400">
+                      <Ticket size={16} className="shrink-0 mt-0.5" />
+                      <span>3. Get your Live Queue Number instantly!</span>
+                    </li>
+                  </ul>
+                </div>
+
                 {/* doctor_id baked into FormData — authoritative source for the server action */}
                 <input type="hidden" name="doctor_id" value={selectedDoctor.id} />
 
@@ -477,7 +510,6 @@ export default function ClinicPage({ params }: PageProps) {
                     <CheckCircle2 size={12} style={{ color: accent }} />
                   </div>
                 </div>
-
                 <FloatingInput
                   id="patient-name"
                   name="patientName"
@@ -488,17 +520,68 @@ export default function ClinicPage({ params }: PageProps) {
                   disabled={isSubmitting}
                   accentColor={accent}
                 />
-                <FloatingInput
-                  id="patient-phone"
-                  name="phoneNumber"
-                  label="Phone Number"
-                  type="tel"
-                  value={phone}
-                  onChange={setPhone}
-                  icon={Phone}
-                  disabled={isSubmitting}
-                  accentColor={accent}
-                />
+                <div>
+                  <FloatingInput
+                    id="patient-phone"
+                    name="phoneNumber"
+                    label="WhatsApp Number"
+                    type="tel"
+                    value={phone}
+                    onChange={setPhone}
+                    icon={Phone}
+                    disabled={isSubmitting}
+                    accentColor={accent}
+                  />
+                  <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1.5">
+                    <MessageCircle size={14} className="text-green-500/80 shrink-0" />
+                    <span>We will send your live queue link and digital prescription here.</span>
+                  </p>
+                  <p className="text-xs text-slate-400 mt-2 flex items-start gap-1.5">
+                    <RefreshCcw size={14} className="shrink-0 mt-0.5" />
+                    <span>Accidentally closed your tab? Enter the exact same phone number to instantly recover your live ticket.</span>
+                  </p>
+                </div>
+
+                {/* Payment Method Selector */}
+                <div className="space-y-2 mt-1">
+                  <label className="block text-xs font-medium text-slate-400 pl-1">Payment Method</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label
+                      className={`cursor-pointer rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
+                        paymentMethod === 'cash'
+                          ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                          : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="cash"
+                        checked={paymentMethod === 'cash'}
+                        onChange={(e) => setPaymentMethod(e.target.value as 'cash')}
+                        className="sr-only"
+                      />
+                      <span className="text-sm font-semibold">Pay at Clinic</span>
+                    </label>
+                    <label
+                      className={`cursor-pointer rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
+                        paymentMethod === 'online'
+                          ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-400'
+                          : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="online"
+                        checked={paymentMethod === 'online'}
+                        onChange={(e) => setPaymentMethod(e.target.value as 'online')}
+                        className="sr-only"
+                      />
+                      <span className="text-sm font-semibold">Pay Online Now</span>
+                    </label>
+                  </div>
+                </div>
 
                 {/* Submit */}
                 <motion.button

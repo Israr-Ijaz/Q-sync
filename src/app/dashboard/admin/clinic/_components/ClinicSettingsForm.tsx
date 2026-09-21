@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Building2, MapPin, Save, Loader2, CheckCircle2, AlertCircle, Banknote } from 'lucide-react'
+import { Building2, MapPin, Save, Loader2, CheckCircle2, AlertCircle, Banknote, Landmark, User, CreditCard, Phone } from 'lucide-react'
 import { updateClinicSettingsAction } from '@/actions/admin'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -11,12 +11,29 @@ interface Props {
   initialName: string
   initialAddress: string
   initialFee: number | null
+  initialPaymentBankName: string | null
+  initialPaymentAccountTitle: string | null
+  initialPaymentAccountNumber: string | null
+  initialClinicWhatsappNumber: string | null
 }
 
-export default function ClinicSettingsForm({ initialName, initialAddress, initialFee }: Props) {
+export default function ClinicSettingsForm({
+  initialName,
+  initialAddress,
+  initialFee,
+  initialPaymentBankName,
+  initialPaymentAccountTitle,
+  initialPaymentAccountNumber,
+  initialClinicWhatsappNumber,
+}: Props) {
   const [name, setName] = useState(initialName)
   const [address, setAddress] = useState(initialAddress)
   const [fee, setFee] = useState<string>(initialFee != null ? String(initialFee) : '')
+  const [paymentBankName, setPaymentBankName] = useState(initialPaymentBankName ?? '')
+  const [paymentAccountTitle, setPaymentAccountTitle] = useState(initialPaymentAccountTitle ?? '')
+  const [paymentAccountNumber, setPaymentAccountNumber] = useState(initialPaymentAccountNumber ?? '')
+  const [clinicWhatsappNumber, setClinicWhatsappNumber] = useState(initialClinicWhatsappNumber ?? '')
+
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -37,6 +54,10 @@ export default function ClinicSettingsForm({ initialName, initialAddress, initia
         name,
         address,
         consultationFee: parsedFee,
+        paymentBankName,
+        paymentAccountTitle,
+        paymentAccountNumber,
+        clinicWhatsappNumber,
       })
       if (result.error) {
         setErrorMsg(result.error)
@@ -131,6 +152,101 @@ export default function ClinicSettingsForm({ initialName, initialAddress, initia
             disabled={isPending}
             className={cn(inputBase, 'pl-16')}
           />
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-white/5 space-y-6">
+        <h3 className="text-lg font-semibold text-white">Online Payment Details</h3>
+        <p className="text-sm text-slate-400">
+          These details will be shown to patients if they choose to pay online.
+        </p>
+
+        {/* Bank Name */}
+        <div className="space-y-1.5">
+          <label htmlFor="payment-bank" className="block text-xs font-medium text-slate-400">
+            Bank Name (e.g. Meezan Bank / JazzCash)
+          </label>
+          <div className="relative">
+            <Landmark
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              aria-hidden="true"
+            />
+            <Input
+              id="payment-bank"
+              type="text"
+              value={paymentBankName}
+              onChange={(e) => { setPaymentBankName(e.target.value); setStatus('idle') }}
+              placeholder="e.g. Meezan Bank"
+              disabled={isPending}
+              className={inputBase}
+            />
+          </div>
+        </div>
+
+        {/* Account Title */}
+        <div className="space-y-1.5">
+          <label htmlFor="payment-title" className="block text-xs font-medium text-slate-400">
+            Account Title (e.g. PrimeCare Clinic)
+          </label>
+          <div className="relative">
+            <User
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              aria-hidden="true"
+            />
+            <Input
+              id="payment-title"
+              type="text"
+              value={paymentAccountTitle}
+              onChange={(e) => { setPaymentAccountTitle(e.target.value); setStatus('idle') }}
+              placeholder="e.g. PrimeCare Clinic"
+              disabled={isPending}
+              className={inputBase}
+            />
+          </div>
+        </div>
+
+        {/* Account Number */}
+        <div className="space-y-1.5">
+          <label htmlFor="payment-number" className="block text-xs font-medium text-slate-400">
+            Account Number (e.g. 03001234567 or PK34MEZN...)
+          </label>
+          <div className="relative">
+            <CreditCard
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              aria-hidden="true"
+            />
+            <Input
+              id="payment-number"
+              type="text"
+              value={paymentAccountNumber}
+              onChange={(e) => { setPaymentAccountNumber(e.target.value); setStatus('idle') }}
+              placeholder="e.g. 03001234567"
+              disabled={isPending}
+              className={inputBase}
+            />
+          </div>
+        </div>
+
+        {/* WhatsApp Number */}
+        <div className="space-y-1.5">
+          <label htmlFor="whatsapp-number" className="block text-xs font-medium text-slate-400">
+            WhatsApp Number for Screenshots (e.g. 923001234567)
+          </label>
+          <div className="relative">
+            <Phone
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              aria-hidden="true"
+            />
+            <Input
+              id="whatsapp-number"
+              type="text"
+              value={clinicWhatsappNumber}
+              onChange={(e) => { setClinicWhatsappNumber(e.target.value); setStatus('idle') }}
+              placeholder="e.g. 923001234567"
+              disabled={isPending}
+              className={inputBase}
+            />
+          </div>
         </div>
       </div>
 

@@ -9,6 +9,8 @@ import {
     CheckCircle2,
     Clock,
     ChevronRight,
+    ChevronDown,
+    ChevronUp,
     ArrowDown,
     UserPlus,
     Zap,
@@ -29,7 +31,7 @@ import { updateTokenStatusAction } from "@/actions/queue";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type TokenStatus = "waiting" | "in_consultation" | "completed";
+type TokenStatus = "pending_arrival" | "pending_payment" | "waiting" | "in_consultation" | "completed";
 type PaymentMode = "pending" | "cash" | "online_transfer";
 
 interface Doctor {
@@ -82,10 +84,20 @@ function formatRelativeTime(iso: string): string {
 // Status badge
 // ---------------------------------------------------------------------------
 const STATUS_CONFIG: Record<TokenStatus, { label: string; classes: string; dot: string }> = {
+    pending_arrival: {
+        label: "Pending Arrival",
+        classes: "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20",
+        dot: "bg-fuchsia-400",
+    },
+    pending_payment: {
+        label: "Pending Verification",
+        classes: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+        dot: "bg-amber-400",
+    },
     waiting: {
         label: "Waiting",
-        classes: "bg-amber-500/15 text-amber-300 border-amber-500/25",
-        dot: "bg-amber-400",
+        classes: "bg-sky-500/15 text-sky-300 border-sky-500/25",
+        dot: "bg-sky-400",
     },
     in_consultation: {
         label: "In Consultation",
@@ -125,38 +137,38 @@ function PaymentWidget({
 }) {
     if (mode === "cash") {
         return (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300">
-                ✓ Cash Received
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300 shadow-sm">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Cash Received
             </span>
         );
     }
     if (mode === "online_transfer") {
         return (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-1 text-xs font-semibold text-indigo-300">
-                ✓ Online Verified
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/15 px-3 py-1.5 text-xs font-bold text-indigo-300 shadow-sm">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Online Verified
             </span>
         );
     }
     if (!isProActive) {
         return (
             <div className="flex items-center gap-1.5 shrink-0" title="Requires Pro subscription">
-                <button disabled className="flex items-center gap-1 rounded-lg border border-slate-700/40 bg-slate-800/40 px-2.5 py-1 text-xs font-semibold text-slate-600 cursor-not-allowed opacity-50" aria-label="Cash payment requires Pro">
-                    <Lock className="h-3 w-3" strokeWidth={2} /> Cash
+                <button disabled className="flex items-center gap-1 rounded-lg border border-slate-700/40 bg-slate-800/40 px-3 py-1.5 text-xs font-semibold text-slate-600 cursor-not-allowed opacity-50" aria-label="Cash payment requires Pro">
+                    <Lock className="h-3.5 w-3.5" strokeWidth={2} /> Cash
                 </button>
-                <button disabled className="flex items-center gap-1 rounded-lg border border-slate-700/40 bg-slate-800/40 px-2.5 py-1 text-xs font-semibold text-slate-600 cursor-not-allowed opacity-50" aria-label="Online payment requires Pro">
-                    <Lock className="h-3 w-3" strokeWidth={2} /> Online
+                <button disabled className="flex items-center gap-1 rounded-lg border border-slate-700/40 bg-slate-800/40 px-3 py-1.5 text-xs font-semibold text-slate-600 cursor-not-allowed opacity-50" aria-label="Online payment requires Pro">
+                    <Lock className="h-3.5 w-3.5" strokeWidth={2} /> Online
                 </button>
                 <span className="hidden rounded-full border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-500 sm:inline">Requires Pro</span>
             </div>
         );
     }
     return (
-        <div className="flex items-center gap-1.5 shrink-0">
-            <button onClick={(e) => { e.stopPropagation(); onPayment(tokenId, "cash"); }} className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50">
-                💵 Cash
+        <div className="flex items-center gap-2 shrink-0">
+            <button onClick={(e) => { e.stopPropagation(); onPayment(tokenId, "cash"); }} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white transition-all hover:bg-emerald-400 hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50">
+                💵 Approve Cash
             </button>
-            <button onClick={(e) => { e.stopPropagation(); onPayment(tokenId, "online_transfer"); }} className="flex items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50">
-                📱 Online
+            <button onClick={(e) => { e.stopPropagation(); onPayment(tokenId, "online_transfer"); }} className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white transition-all hover:bg-indigo-400 hover:shadow-[0_4px_12px_rgba(99,102,241,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50">
+                📱 Approve Online
             </button>
         </div>
     );
@@ -195,10 +207,10 @@ function TransferButton({
         <div className="relative shrink-0" ref={ref}>
             <button
                 onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-                className="flex items-center gap-1 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-400 transition-colors hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/50"
                 title="Transfer to another doctor"
             >
-                <ArrowLeftRight className="h-3 w-3" />
+                <ArrowLeftRight className="h-3.5 w-3.5" />
                 Transfer
             </button>
 
@@ -252,15 +264,19 @@ function TransferButton({
 // ---------------------------------------------------------------------------
 interface TokenRowProps {
     token: Token;
-    index: number;
     isTop: boolean;
     isProActive: boolean;
     doctors: Doctor[];
     onPayment: (id: string, mode: "cash" | "online_transfer") => void;
     onTransfer: (tokenId: string, newDoctorId: string) => void;
+    onCallNext: () => void;
+    isExpanded: boolean;
+    onToggle: () => void;
 }
 
-function TokenRow({ token, index, isTop, isProActive, doctors, onPayment, onTransfer }: TokenRowProps) {
+function TokenRow({ token, isTop, isProActive, doctors, onPayment, onTransfer, onCallNext, isExpanded, onToggle }: TokenRowProps) {
+    const isPending = token.status === "pending_payment";
+
     return (
         <motion.div
             layout
@@ -268,57 +284,85 @@ function TokenRow({ token, index, isTop, isProActive, doctors, onPayment, onTran
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, x: -24, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            className={cn(
-                "group relative flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4 transition-colors duration-200",
-                isTop
-                    ? "border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-teal-500/5 shadow-[0_0_16px_rgba(16,185,129,0.08)]"
-                    : "border-slate-700/50 bg-slate-800/40 hover:border-slate-600/60 hover:bg-slate-800/60"
-            )}
+            className="bg-slate-900 border border-slate-800 rounded-xl mb-3 shadow-sm overflow-hidden transition-all"
         >
-            {/* Position indicator */}
-            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold", isTop ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700/60 text-slate-400")}>
-                {index + 1}
-            </div>
-
-            {/* Token number */}
-            <div className="flex flex-col leading-none">
-                <span className={cn("text-xl font-extrabold tracking-tight", isTop ? "text-emerald-300" : "text-slate-100")}>
+            {/* Header (Always Visible & Clickable) */}
+            <div 
+                onClick={onToggle}
+                className="cursor-pointer p-4 flex items-center gap-4 hover:bg-slate-800/50"
+            >
+                {/* Left (Badge) */}
+                <div className="w-20 h-14 flex-shrink-0 flex items-center justify-center bg-slate-800 text-emerald-400 font-bold text-lg whitespace-nowrap tracking-wider rounded-lg border border-slate-700">
                     {formatTokenNumber(token, doctors)}
-                </span>
-                <span className="mt-0.5 text-xs text-slate-500">{formatTime(token.created_at)}</span>
-            </div>
+                </div>
 
-            {/* Patient info */}
-            <div className="flex-1 min-w-0">
-                <p className={cn("truncate text-lg font-semibold", isTop ? "text-white" : "text-slate-200")}>
+                {/* Middle (Details) */}
+                <div className="flex-1 text-lg font-semibold text-white truncate">
                     {token.patient_name}
-                </p>
-                <div className="flex items-center gap-2">
-                    <p className="text-xs text-slate-500">{formatRelativeTime(token.created_at)}</p>
-                    {token.patient_phone && (
-                        <span className="flex items-center gap-1 text-xs text-slate-600">
-                            <Phone className="h-3 w-3" />
-                            {token.patient_phone}
-                        </span>
+                </div>
+
+                {/* Right (Status & Chevron) */}
+                <div className="flex items-center gap-3 shrink-0">
+                    <StatusBadge status={token.status} />
+                    {isExpanded ? (
+                        <ChevronUp className="h-5 w-5 text-slate-400" />
+                    ) : (
+                        <ChevronDown className="h-5 w-5 text-slate-400" />
                     )}
                 </div>
             </div>
 
-            {/* Status */}
-            <StatusBadge status={token.status} />
+            {/* The Expanded Body (Conditionally Rendered) */}
+            <AnimatePresence>
+                {isExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            {/* Left Side (Details) */}
+                            <div className="text-slate-400 text-sm flex flex-col gap-1">
+                                {token.patient_phone && (
+                                    <span className="flex items-center gap-1">
+                                        <Phone className="h-3.5 w-3.5" />
+                                        {token.patient_phone}
+                                    </span>
+                                )}
+                                <span className="flex items-center gap-1">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    Wait time: {formatRelativeTime(token.created_at)}
+                                </span>
+                            </div>
 
-            {/* Payment */}
-            <PaymentWidget mode={token.payment_mode} tokenId={token.id} onPayment={onPayment} isProActive={isProActive} />
-
-            {/* Transfer */}
-            <TransferButton token={token} doctors={doctors} onTransfer={onTransfer} />
-
-            {/* Next indicator */}
-            {isTop && (
-                <span className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-300">
-                    <Zap className="h-3 w-3" /> Next
-                </span>
-            )}
+                            {/* Right Side (Actions) */}
+                            <div className="flex flex-wrap items-center gap-3 shrink-0">
+                                <TransferButton token={token} doctors={doctors} onTransfer={onTransfer} />
+                                
+                                {isPending ? (
+                                    <div className="flex gap-2">
+                                        <button onClick={(e) => { e.stopPropagation(); onPayment(token.id, "cash"); }} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold text-sm rounded-lg transition-colors shadow-sm">
+                                            Approve: Cash
+                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); onPayment(token.id, "online_transfer"); }} className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold text-sm rounded-lg transition-colors shadow-sm">
+                                            Approve: Transfer
+                                        </button>
+                                    </div>
+                                ) : token.status === "pending_arrival" ? (
+                                    <button onClick={(e) => { e.stopPropagation(); onPayment(token.id, "cash"); }} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                                        Verify Arrival (Cash)
+                                    </button>
+                                ) : isTop ? (
+                                    <button onClick={(e) => { e.stopPropagation(); onCallNext(); }} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                        Call Next <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                ) : null}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 }
@@ -554,7 +598,7 @@ function DoctorTab({ doctor, isActive, waitingCount, onClick }: { doctor: Doctor
             )}
             <span className="truncate max-w-[120px]">{doctor.full_name ?? "Doctor"}</span>
             {waitingCount > 0 && (
-                <span className={cn("flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-bold", isActive ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-400")}>
+                <span className={cn("flex min-w-[1.5rem] h-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold shadow-sm", isActive ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-300")}>
                     {waitingCount}
                 </span>
             )}
@@ -579,6 +623,7 @@ export default function ReceptionistDashboardPage() {
     const [actionPending, setActionPending] = useState(false);
     const [clinicId, setClinicId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [expandedTokenId, setExpandedTokenId] = useState<string | null>(null);
 
     const tokensRef = useRef<Token[]>([]);
     tokensRef.current = tokens;
@@ -592,10 +637,21 @@ export default function ReceptionistDashboardPage() {
     // ── Payment verification ──────────────────────────────────────────────────
     const updatePayment = useCallback(
         async (id: string, mode: "cash" | "online_transfer") => {
-            setTokens((prev) => prev.map((t) => (t.id === id ? { ...t, payment_mode: mode } : t)));
-            const { error } = await supabase.from("tokens").update({ payment_mode: mode }).eq("id", id);
+            const token = tokensRef.current.find((t) => t.id === id);
+            const isPendingPayment = token?.status === "pending_payment";
+            const isPendingArrival = token?.status === "pending_arrival";
+            const newStatus = (isPendingPayment || isPendingArrival) ? "waiting" : token?.status;
+
+            setTokens((prev) => prev.map((t) => (t.id === id ? { ...t, payment_mode: mode, status: newStatus as TokenStatus } : t)));
+            
+            const updatePayload: any = { payment_mode: mode };
+            if (isPendingPayment || isPendingArrival) {
+                updatePayload.status = "waiting";
+            }
+
+            const { error } = await supabase.from("tokens").update(updatePayload).eq("id", id);
             if (error) {
-                setTokens((prev) => prev.map((t) => (t.id === id ? { ...t, payment_mode: "pending" } : t)));
+                setTokens((prev) => prev.map((t) => (t.id === id ? { ...t, payment_mode: "pending", status: token?.status as TokenStatus } : t)));
                 showToast("Failed to update payment.", "error");
             } else {
                 showToast(mode === "cash" ? "💵 Cash payment recorded." : "📱 Online transfer verified.");
@@ -695,35 +751,44 @@ export default function ReceptionistDashboardPage() {
 
     // ── Active doctor queue slices ─────────────────────────────────────────────
     const activeTokens = tokens.filter((t) => t.doctor_id === activeDoctorId);
-    const waitingQueue = activeTokens.filter((t) => t.status === "waiting");
+    const waitingQueue = activeTokens.filter((t) => t.status === "waiting" || t.status === "pending_payment" || t.status === "pending_arrival");
     const calledToken = activeTokens.find((t) => t.status === "in_consultation") ?? null;
     const completedToday = activeTokens.filter((t) => t.status === "completed");
+
+    useEffect(() => {
+        if (waitingQueue.length > 0) {
+            if (!expandedTokenId || !waitingQueue.find((t) => t.id === expandedTokenId)) {
+                setExpandedTokenId(waitingQueue[0].id);
+            }
+        } else if (waitingQueue.length === 0) {
+            setExpandedTokenId(null);
+        }
+    }, [waitingQueue, expandedTokenId]);
 
     // ── Call Next ─────────────────────────────────────────────────────────────
     const callNext = useCallback(async () => {
         if (actionPending) return;
-        const queue = tokensRef.current.filter((t) => t.doctor_id === activeDoctorId && t.status === "waiting");
+        const currentCalled = tokensRef.current.find((t) => t.doctor_id === activeDoctorId && t.status === "in_consultation");
+        if (currentCalled) {
+            showToast("Doctor is currently in consultation.", "error");
+            return;
+        }
+
+        const queue = tokensRef.current.filter((t) => t.doctor_id === activeDoctorId && t.status === "waiting").sort((a,b) => a.token_number - b.token_number);
         const next = queue[0];
         if (!next) { showToast("No patients waiting.", "error"); return; }
 
         setActionPending(true);
-        const currentCalled = tokensRef.current.find((t) => t.doctor_id === activeDoctorId && t.status === "in_consultation");
         const snapshot = tokensRef.current;
 
         setTokens((prev) => prev.map((t) => {
             if (t.id === next.id) return { ...t, status: "in_consultation" as const };
-            if (currentCalled && t.id === currentCalled.id) return { ...t, status: "completed" as const };
             return t;
         }));
 
-        let dbError = false;
-        if (currentCalled) {
-            const { error } = await updateTokenStatusAction(currentCalled.id, "completed");
-            if (error) dbError = true;
-        }
         const { error } = await updateTokenStatusAction(next.id, "in_consultation");
 
-        if (error || dbError) {
+        if (error) {
             setTokens(snapshot);
             showToast("Failed to call next patient.", "error");
         } else {
@@ -735,7 +800,7 @@ export default function ReceptionistDashboardPage() {
     // ── Bump Down ─────────────────────────────────────────────────────────────
     const bumpDown = useCallback(async () => {
         if (actionPending) return;
-        const queue = tokensRef.current.filter((t) => t.doctor_id === activeDoctorId && t.status === "waiting");
+        const queue = tokensRef.current.filter((t) => t.doctor_id === activeDoctorId && t.status === "waiting").sort((a, b) => a.token_number - b.token_number);
         if (queue.length < 2) { showToast("Not enough patients to bump down.", "error"); return; }
 
         setActionPending(true);
@@ -839,7 +904,7 @@ export default function ReceptionistDashboardPage() {
                         <p className="mt-0.5 text-sm text-slate-500">Today&apos;s queue · {tokens.length} total patients registered</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button id="btn-call-next" onClick={callNext} disabled={actionPending || waitingQueue.length === 0} className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 transition-all hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                        <button id="btn-call-next" onClick={callNext} disabled={actionPending || waitingQueue.length === 0 || calledToken !== null} className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 transition-all hover:bg-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
                             {actionPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />} Call Next
                         </button>
                         <button id="btn-bump-down" onClick={bumpDown} disabled={actionPending || waitingQueue.length < 2} className="flex items-center gap-2 rounded-xl border border-slate-700/60 bg-slate-800/50 px-4 py-2.5 text-sm font-semibold text-slate-300 transition-all hover:border-slate-600/80 hover:bg-slate-800/80 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600">
@@ -878,7 +943,7 @@ export default function ReceptionistDashboardPage() {
                                 key={doc.id}
                                 doctor={doc}
                                 isActive={activeDoctorId === doc.id}
-                                waitingCount={tokens.filter((t) => t.doctor_id === doc.id && t.status === "waiting").length}
+                                waitingCount={tokens.filter((t) => t.doctor_id === doc.id && (t.status === "waiting" || t.status === "pending_payment")).length}
                                 onClick={() => setActiveDoctorId(doc.id)}
                             />
                         ))}
@@ -917,9 +982,23 @@ export default function ReceptionistDashboardPage() {
                             ) : (
                                 <motion.div className="flex flex-col gap-2" layout>
                                     <AnimatePresence initial={false}>
-                                        {waitingQueue.map((token, i) => (
-                                            <TokenRow key={token.id} token={token} index={i} isTop={i === 0} isProActive={isProActive} doctors={doctors} onPayment={updatePayment} onTransfer={handleTransfer} />
-                                        ))}
+                                        {waitingQueue.map((token) => {
+                                            const isTop = (token.id === waitingQueue.find(t => t.status === "waiting")?.id);
+                                            return (
+                                                <TokenRow 
+                                                    key={token.id} 
+                                                    token={token} 
+                                                    isTop={isTop} 
+                                                    isProActive={isProActive} 
+                                                    doctors={doctors} 
+                                                    onPayment={updatePayment} 
+                                                    onTransfer={handleTransfer} 
+                                                    onCallNext={callNext} 
+                                                    isExpanded={expandedTokenId === token.id}
+                                                    onToggle={() => setExpandedTokenId(prev => prev === token.id ? null : token.id)}
+                                                />
+                                            )
+                                        })}
                                     </AnimatePresence>
                                 </motion.div>
                             )}
