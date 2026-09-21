@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSubscription } from '@/lib/subscription-context';
+import { updateTokenStatusAction } from '@/actions/queue';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ConsultationToken {
@@ -1764,10 +1765,7 @@ export default function DoctorDashboardPage() {
     if (!currentToken) return;
     setIsCompleting(true);
 
-    const { error } = await supabase
-      .from('tokens')
-      .update({ status: 'completed' })
-      .eq('id', currentToken.id);
+    const { error } = await updateTokenStatusAction(currentToken.id, 'completed');
 
     if (error) {
       console.error('[DoctorDashboard] Failed to complete consultation:', error.message);

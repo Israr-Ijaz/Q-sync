@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSubscription } from "@/lib/subscription-context";
 import { transferPatientAction, createWalkInTokenAction } from "@/actions/patient";
+import { updateTokenStatusAction } from "@/actions/queue";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -717,10 +718,10 @@ export default function ReceptionistDashboardPage() {
 
         let dbError = false;
         if (currentCalled) {
-            const { error } = await supabase.from("tokens").update({ status: "completed" }).eq("id", currentCalled.id);
+            const { error } = await updateTokenStatusAction(currentCalled.id, "completed");
             if (error) dbError = true;
         }
-        const { error } = await supabase.from("tokens").update({ status: "in_consultation" }).eq("id", next.id);
+        const { error } = await updateTokenStatusAction(next.id, "in_consultation");
 
         if (error || dbError) {
             setTokens(snapshot);

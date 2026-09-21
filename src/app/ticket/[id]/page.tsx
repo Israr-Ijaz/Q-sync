@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useRef } from 'react';
+import { use, useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import {
@@ -12,7 +12,9 @@ import {
   Loader2,
   AlertCircle,
   Activity,
+  Stethoscope,
 } from 'lucide-react';
+import { getDoctorAverageConsultationTime } from '@/actions/queue';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type TicketStatus = 'waiting' | 'almost' | 'called' | 'in_consultation' | 'completed';
@@ -27,6 +29,8 @@ interface TicketData {
   peopleAhead: number;
   estimatedMinutes: number;
   issuedAt: string;
+  clinicId: string;
+  doctorId: string;
 }
 
 type PageProps = {
@@ -252,6 +256,9 @@ export default function TicketPage({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLive] = useState(true);
   const [paymentMode, setPaymentMode] = useState<'pending' | 'cash' | 'online_transfer'>('pending');
+  const [isCalledAlert, setIsCalledAlert] = useState(false);
+
+  const prevStatusRef = useRef<TicketStatus | null>(null);
 
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -261,7 +268,7 @@ export default function TicketPage({ params }: PageProps) {
     async function fetchTicketDetails() {
       const { data, error } = await supabase
         .from('tokens')
-        .select(`patient_name, token_number, status, payment_mode, created_at, clinic_id, clinics (name)`)
+        .select(`patient_name, token_number, status, payment_mode, created_at, clinic_id, doctor_id, clinics (name)`)
         .eq('id', id)
         .single();
 
@@ -282,11 +289,13 @@ export default function TicketPage({ params }: PageProps) {
         .from('tokens')
         .select('*', { count: 'exact', head: true })
         .eq('clinic_id', data.clinic_id)
+        .eq('doctor_id', data.doctor_id)
         .in('status', ['waiting', 'almost'])
         .lt('token_number', data.token_number);
 
       const realPeopleAhead = count || 0;
-      const calculatedWaitTime = realPeopleAhead * 5;
+      const { averageMinutes } = await getDoctorAverageConsultationTime(data.doctor_id);
+      const calculatedWaitTime = realPeopleAhead * averageMinutes;
 
       const rawNum = data.token_number as number;
       setPaymentMode((data.payment_mode as 'pending' | 'cash' | 'online_transfer') ?? 'pending');
@@ -300,6 +309,8 @@ export default function TicketPage({ params }: PageProps) {
         peopleAhead: realPeopleAhead,
         estimatedMinutes: calculatedWaitTime,
         issuedAt: formattedTime,
+        clinicId: data.clinic_id,
+        doctorId: data.doctor_id,
       });
       setIsLoading(false);
     }
@@ -333,17 +344,20 @@ export default function TicketPage({ params }: PageProps) {
             if (!current) return;
             // Extract clinic_id from the raw payload (available from DB row)
             const clinicId = payload.new.clinic_id as string;
+            const doctorId = payload.new.doctor_id as string;
             const tokenNumber = payload.new.token_number as number;
             const { count } = await supabase
               .from('tokens')
               .select('*', { count: 'exact', head: true })
               .eq('clinic_id', clinicId)
+              .eq('doctor_id', doctorId)
               .in('status', ['waiting', 'almost'])
               .lt('token_number', tokenNumber);
             const realPeopleAhead = count ?? 0;
+            const { averageMinutes } = await getDoctorAverageConsultationTime(doctorId);
             setTicket((prev) =>
               prev
-                ? { ...prev, peopleAhead: realPeopleAhead, estimatedMinutes: realPeopleAhead * 5 }
+                ? { ...prev, peopleAhead: realPeopleAhead, estimatedMinutes: realPeopleAhead * averageMinutes }
                 : prev
             );
           }
@@ -353,6 +367,61 @@ export default function TicketPage({ params }: PageProps) {
 
     return () => { supabase.removeChannel(channel); };
   }, [id, supabase]);
+
+  // 3. Clinic-level Queue Sync — catches updates to other tokens so peopleAhead updates live.
+  useEffect(() => {
+    if (!ticket?.clinicId || !ticket?.doctorId) return;
+    
+    const channel = supabase
+      .channel(`live-queue-${ticket.clinicId}-${ticket.doctorId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tokens', filter: `clinic_id=eq.${ticket.clinicId}` },
+        async () => {
+          // Another token was updated. Let's recalculate our position if we're still waiting.
+          const current = ticketRef.current;
+          if (!current || (current.status !== 'waiting' && current.status !== 'almost')) return;
+          
+          const { count } = await supabase
+            .from('tokens')
+            .select('*', { count: 'exact', head: true })
+            .eq('clinic_id', current.clinicId)
+            .eq('doctor_id', current.doctorId)
+            .in('status', ['waiting', 'almost'])
+            .lt('token_number', current.rawTokenNumber);
+            
+          const realPeopleAhead = count ?? 0;
+          const { averageMinutes } = await getDoctorAverageConsultationTime(current.doctorId);
+          
+          setTicket((prev) =>
+            prev
+              ? { ...prev, peopleAhead: realPeopleAhead, estimatedMinutes: realPeopleAhead * averageMinutes }
+              : prev
+          );
+        }
+      )
+      .subscribe();
+      
+    return () => { supabase.removeChannel(channel); };
+  }, [ticket?.clinicId, ticket?.doctorId, supabase]);
+
+  // 4. Haptic Feedback & Alert Overlay
+  useEffect(() => {
+    if (ticket && prevStatusRef.current) {
+      if (
+        (prevStatusRef.current === 'waiting' || prevStatusRef.current === 'almost') &&
+        (ticket.status === 'in_consultation' || ticket.status === 'called')
+      ) {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([200, 100, 200, 100, 500]);
+        }
+        setIsCalledAlert(true);
+      }
+    }
+    if (ticket) {
+      prevStatusRef.current = ticket.status;
+    }
+  }, [ticket?.status]);
 
   if (isLoading) {
     return (
@@ -378,6 +447,45 @@ export default function TicketPage({ params }: PageProps) {
   return (
     <LayoutGroup>
       <motion.div layout className="relative min-h-screen w-full overflow-hidden flex flex-col" animate={{ background: config.gradient }} transition={{ duration: 1.2, ease: 'easeInOut' }}>
+        {/* Haptic & Visual Alert Overlay */}
+        <AnimatePresence>
+          {isCalledAlert && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 backdrop-blur-sm"
+              style={{ background: 'rgba(16, 185, 129, 0.2)' }}
+              onClick={() => setIsCalledAlert(false)}
+            >
+              <motion.div
+                animate={{ 
+                  boxShadow: ['0 0 0px 0px rgba(52, 211, 153, 0.8)', '0 0 0px 20px rgba(52, 211, 153, 0)', '0 0 0px 0px rgba(52, 211, 153, 0)'],
+                  scale: [1, 1.02, 1]
+                }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="bg-[#022c22] border-2 border-emerald-500 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl"
+              >
+                <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <BellRing className="w-10 h-10 text-emerald-400" />
+                </div>
+                <h2 className="text-3xl font-black text-white mb-3">It's your turn!</h2>
+                <p className="text-emerald-100 text-lg mb-8 leading-relaxed">
+                  Please proceed to the Doctor's room now.
+                </p>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCalledAlert(false);
+                  }}
+                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold py-4 rounded-xl text-lg transition-colors"
+                >
+                  Dismiss
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Ambient blobs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
