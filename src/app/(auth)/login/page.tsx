@@ -2,9 +2,8 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Stethoscope, ShieldCheck, ArrowRight, Lock, Mail, Loader2 } from "lucide-react";
+import { Stethoscope, ArrowRight, Lock, Mail, Loader2, Eye, EyeOff, Clock } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +25,17 @@ export default function LoginPage() {
   const supabase = useRef(createClient()).current;
   const passwordRef = useRef<HTMLInputElement>(null);
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
   const [form, setForm] = useState<LoginFormState>({
     email: "",
     password: "",
     loading: false,
     error: null,
   });
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (field: keyof Pick<LoginFormState, "email" | "password">) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,78 +93,31 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950">
+    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-slate-950 text-white animate-in fade-in duration-700">
+      
+      {/* ── Left Column (The Form) ── */}
+      <div className="flex flex-col p-8 md:p-16 justify-center relative">
+        {/* Logo at top left */}
+        <div className="absolute top-8 left-8 md:top-12 md:left-12">
+          <a href="/" className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white hover:opacity-80 transition-opacity">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <Stethoscope size={17} strokeWidth={2.2} />
+            </span>
+            <span className="text-[17px]">opedox</span>
+          </a>
+        </div>
 
-      {/* ── Ambient background radial glows ── */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0"
-      >
-        {/* Top-left emerald orb */}
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-emerald-500/10 blur-[120px]" />
-        {/* Bottom-right cyan orb */}
-        <div className="absolute -bottom-40 -right-40 h-[480px] w-[480px] rounded-full bg-cyan-500/10 blur-[120px]" />
-        {/* Center subtle glow */}
-        <div className="absolute top-1/2 left-1/2 h-[300px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-500/5 blur-[100px]" />
-      </div>
-
-      {/* ── Architectural dot-grid overlay ── */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, rgba(148,163,184,0.07) 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
-        }}
-      />
-
-      {/* ── Main glassmorphic card ── */}
-      <main className="relative z-10 w-full max-w-md px-4">
-        <div
-          className={cn(
-            "rounded-2xl border border-white/[0.08]",
-            "bg-white/[0.04] backdrop-blur-xl",
-            "shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.5)]",
-            "p-8 sm:p-10"
-          )}
-        >
-          {/* ── Brand identity badge ── */}
-          <header className="mb-8 flex flex-col items-center gap-4 text-center">
-            {/* Icon mark */}
-            <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-400/30 to-cyan-400/20 blur-xl" />
-              <div
-                className={cn(
-                  "relative flex h-14 w-14 items-center justify-center rounded-2xl",
-                  "bg-gradient-to-br from-emerald-500/20 to-cyan-500/10",
-                  "border border-emerald-500/20",
-                  "shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
-                )}
-              >
-                <Stethoscope
-                  className="h-7 w-7 text-emerald-400"
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                />
-              </div>
-            </div>
-
-            {/* Wordmark */}
-            <div className="space-y-1">
-              <h1 className="bg-gradient-to-r from-slate-100 via-white to-slate-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent">
-                Opedox Medical
-              </h1>
-              <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-                OPD Terminal Access
-              </p>
-            </div>
-
-            {/* Thin rule */}
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        {/* Content wrapper */}
+        <div className="w-full max-w-md mx-auto mt-16 md:mt-0">
+          <header className="mb-8 space-y-2">
+            <h1 className="text-3xl font-semibold tracking-tight text-white">
+              Welcome back, Doc.
+            </h1>
+            <p className="text-slate-400 text-sm">
+              Let's get that waiting room cleared out.
+            </p>
           </header>
 
-          {/* ── Login form ── */}
           <form
             id="opedox-login-form"
             onSubmit={handleSubmit}
@@ -196,11 +153,10 @@ export default function LoginPage() {
                   }}
                   className={cn(
                     "h-11 pl-10 pr-4",
-                    "border-white/[0.08] bg-white/[0.04] text-slate-100",
+                    "border-slate-800 bg-slate-900 text-slate-100",
                     "placeholder:text-slate-600",
-                    "focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20",
-                    "transition-all duration-200",
-                    "dark:bg-white/[0.04] dark:border-white/[0.08]"
+                    "focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20",
+                    "transition-all duration-200"
                   )}
                 />
               </div>
@@ -217,7 +173,7 @@ export default function LoginPage() {
                 </label>
                 <a
                   href="/forgot-password"
-                  className="text-xs font-medium text-emerald-500/80 transition-colors hover:text-emerald-400"
+                  className="text-xs font-medium text-emerald-500 transition-colors hover:text-emerald-400"
                 >
                   Forgot password?
                 </a>
@@ -230,21 +186,28 @@ export default function LoginPage() {
                 <Input
                   id="login-password"
                   ref={passwordRef}
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   placeholder="••••••••••"
                   value={form.password}
                   onChange={handleChange("password")}
                   disabled={form.loading}
                   className={cn(
-                    "h-11 pl-10 pr-4",
-                    "border-white/[0.08] bg-white/[0.04] text-slate-100",
+                    "h-11 pl-10 pr-10",
+                    "border-slate-800 bg-slate-900 text-slate-100",
                     "placeholder:text-slate-600",
-                    "focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20",
-                    "transition-all duration-200",
-                    "dark:bg-white/[0.04] dark:border-white/[0.08]"
+                    "focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20",
+                    "transition-all duration-200"
                   )}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-500 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -264,23 +227,14 @@ export default function LoginPage() {
               type="submit"
               disabled={form.loading}
               className={cn(
-                "group relative mt-2 flex h-11 w-full items-center justify-center gap-2 overflow-hidden",
+                "group relative mt-4 flex h-11 w-full items-center justify-center gap-2 overflow-hidden",
                 "rounded-xl px-6 text-sm font-semibold text-white",
-                "bg-gradient-to-r from-emerald-500 to-teal-500",
-                "shadow-[0_0_20px_rgba(16,185,129,0.3)]",
+                "bg-emerald-600 hover:bg-emerald-500",
                 "transition-all duration-300",
-                "hover:shadow-[0_0_32px_rgba(16,185,129,0.45)] hover:brightness-110 hover:-translate-y-px",
-                "active:translate-y-0 active:brightness-95",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
-                "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:brightness-100 disabled:hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                "disabled:cursor-not-allowed disabled:opacity-60"
               )}
             >
-              {/* Shine sweep on hover */}
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-500 group-hover:translate-x-full"
-              />
-
               {form.loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -288,7 +242,7 @@ export default function LoginPage() {
                 </>
               ) : (
                 <>
-                  <span>Sign In to Terminal</span>
+                  <span>Sign In</span>
                   <ArrowRight
                     className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
                     aria-hidden="true"
@@ -300,11 +254,11 @@ export default function LoginPage() {
 
           {/* ── Sign Up prompt ── */}
           <div className="mt-6 text-center">
-            <p className="text-xs text-slate-500">
-              Don&rsquo;t have an account?{" "}
+            <p className="text-xs text-slate-400">
+              Don't have an account?{" "}
               <a
                 href="/signup"
-                className="font-medium text-emerald-400 transition-colors hover:text-emerald-300"
+                className="font-medium text-emerald-500 transition-colors hover:text-emerald-400"
               >
                 Sign Up
               </a>
@@ -314,7 +268,7 @@ export default function LoginPage() {
           {/* ── Staff notice ── */}
           <div
             id="staff-password-notice"
-            className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-4 py-3"
+            className="mt-8 flex items-start gap-2.5 rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-4 py-3"
           >
             <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400">
               <svg viewBox="0 0 16 16" fill="currentColor" className="h-2.5 w-2.5" aria-hidden="true">
@@ -326,27 +280,43 @@ export default function LoginPage() {
               <span className="font-medium text-amber-400">Clinic Admin</span> to reset it.
             </p>
           </div>
-
-          {/* ── Security footer badge ── */}
-          <footer className="mt-6">
-            <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-              <ShieldCheck
-                className="h-4 w-4 shrink-0 text-emerald-500"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
-              <p className="text-xs text-slate-500">
-                End-to-End Encrypted OPD Node &mdash;{" "}
-                <span className="text-emerald-600">TLS 1.3</span>
-              </p>
-            </div>
-
-            <p className="mt-5 text-center text-[11px] text-slate-700">
-              Authorized clinical personnel only &middot; All sessions are audited
-            </p>
-          </footer>
         </div>
-      </main>
+      </div>
+
+      {/* ── Right Column (The Opedox Showcase) ── */}
+      <div className="hidden md:flex flex-col items-center justify-center relative overflow-hidden bg-slate-900 border-l border-white/5">
+        {/* Deep emerald radial gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.15),transparent_60%)]" />
+        
+        {/* Subtle grid overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+          }}
+        />
+
+        <div className="relative z-10 flex flex-col items-center text-center px-8">
+          {/* Icon */}
+          <div className="relative mb-8">
+            <div className="absolute inset-0 -z-10 scale-150 rounded-full bg-emerald-500/20 blur-[60px]" />
+            <div className="flex size-24 items-center justify-center rounded-3xl border border-emerald-500/20 bg-slate-950/40 backdrop-blur-xl shadow-[0_0_50px_rgba(16,185,129,0.2)]">
+              <Clock size={48} className="text-emerald-500 animate-pulse" strokeWidth={1.5} />
+            </div>
+          </div>
+          
+          <h2 className="text-4xl font-bold tracking-tight text-white mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+            {greeting}, team.
+          </h2>
+          <p className="text-slate-400 mb-8 max-w-sm">
+            Let's clear out the waiting room.
+          </p>
+        </div>
+      </div>
+
     </div>
   );
 }
