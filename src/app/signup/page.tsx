@@ -609,18 +609,29 @@ export default function SignupPage() {
       })
 
       if (ownerError || !ownerAuth.user) {
-        alert(ownerError?.message ?? 'Failed to create owner account.')
-        setIsSubmitting(false)
-        return
+        throw ownerError || new Error("Failed to create owner account.");
       }
 
       // Success — advance to OTP verification (Step 4)
       setIsSubmitting(false)
       goTo(4)
-    } catch (err) {
-      console.error('[handleLaunch] Unexpected error:', err)
-      alert('An unexpected error occurred. Please try again.')
-      setIsSubmitting(false)
+    } catch (error) {
+      console.error("Technical Error:", error);
+      const rawMessage = ((error as Error)?.message || String(error)).toLowerCase();
+      let bestMessage = "Failed to create account. Please try again.";
+
+      if (rawMessage.includes("already registered") || rawMessage.includes("already exists")) {
+        bestMessage = "This email is already associated with a clinic. Please log in instead.";
+      } else if (rawMessage.includes("password")) {
+        bestMessage = "Please ensure your password is secure and meets the requirements.";
+      } else if (rawMessage.includes("invalid email") || rawMessage.includes("email address: invalid")) {
+        bestMessage = "The email address provided appears to be invalid. Please check for typos.";
+      } else if (rawMessage.includes("500") || rawMessage.includes("fetch") || rawMessage.includes("network")) {
+        bestMessage = "We are unable to connect to our secure servers right now. Please check your internet connection.";
+      }
+
+      alert(bestMessage);
+      setIsSubmitting(false);
     }
   }, [form, supabase, goTo])
 
@@ -665,13 +676,7 @@ export default function SignupPage() {
       })
 
       if ('error' in result) {
-        console.error('[handleVerifyOtp] Server action failed:', result.error)
-        // OTP is already consumed — do not allow retry with same code.
-        // Show error and instruct user to restart.
-        setRegistrationError(result.error)
-        setOtpCode('')  // clear the input so they can't accidentally re-submit
-        setIsVerifying(false)
-        return
+        throw new Error(result.error);
       }
 
       // Build generated credentials list from the server's response
@@ -686,11 +691,26 @@ export default function SignupPage() {
 
       setIsVerifying(false)
       goTo(5)
-    } catch (err) {
-      console.error('[handleVerifyOtp] Unexpected client-side error:', err)
-      setRegistrationError('An unexpected error occurred. Please restart the signup flow.')
-      setOtpCode('')
-      setIsVerifying(false)
+    } catch (error) {
+      console.error("Technical Error:", error);
+      const rawMessage = ((error as Error)?.message || String(error)).toLowerCase();
+      let bestMessage = "An unexpected error occurred. Please restart the signup flow.";
+
+      if (rawMessage.includes("already registered") || rawMessage.includes("already exists")) {
+        bestMessage = "This clinic or email is already registered. Please log in instead.";
+      } else if (rawMessage.includes("password")) {
+        bestMessage = "One of the staff passwords does not meet security requirements.";
+      } else if (rawMessage.includes("invalid email") || rawMessage.includes("email address: invalid")) {
+        bestMessage = "A provided email address appears to be invalid. Please check for typos.";
+      } else if (rawMessage.includes("500") || rawMessage.includes("fetch") || rawMessage.includes("network")) {
+        bestMessage = "We are unable to connect to our secure servers right now. Please check your internet connection.";
+      } else if (rawMessage.includes("otp") || rawMessage.includes("token") || rawMessage.includes("expired")) {
+        bestMessage = "The verification code is invalid or has expired. Please request a new one.";
+      }
+
+      setRegistrationError(bestMessage);
+      setOtpCode('');
+      setIsVerifying(false);
     }
   }, [form, slug, otpCode, goTo])
 

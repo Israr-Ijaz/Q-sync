@@ -58,12 +58,7 @@ export default function LoginPage() {
         });
 
       if (authError || !authData.user) {
-        setForm((prev) => ({
-          ...prev,
-          loading: false,
-          error: authError?.message ?? "Authentication failed. Please try again.",
-        }));
-        return;
+        throw authError || new Error("Authentication failed. Please try again.");
       }
 
       // Fetch role to route doctor vs receptionist
@@ -82,12 +77,25 @@ export default function LoginPage() {
       } else {
         router.push("/dashboard/receptionist");
       }
-    } catch (err) {
-      console.error("[Login] Unexpected error:", err);
+    } catch (error) {
+      console.error("Technical Error:", error);
+      const rawMessage = ((error as Error)?.message || String(error)).toLowerCase();
+      let bestMessage = "An unexpected error occurred. Please try again.";
+
+      if (rawMessage.includes("invalid login credentials")) {
+        bestMessage = "Incorrect email or password. Please try again.";
+      } else if (rawMessage.includes("invalid email") || rawMessage.includes("email address: invalid")) {
+        bestMessage = "The email address provided appears to be invalid. Please check for typos.";
+      } else if (rawMessage.includes("password")) {
+        bestMessage = "The password provided is invalid. Please try again.";
+      } else if (rawMessage.includes("500") || rawMessage.includes("fetch") || rawMessage.includes("network")) {
+        bestMessage = "We are unable to connect to our secure servers right now. Please check your internet connection.";
+      }
+
       setForm((prev) => ({
         ...prev,
         loading: false,
-        error: "An unexpected error occurred. Please try again.",
+        error: bestMessage,
       }));
     }
   };

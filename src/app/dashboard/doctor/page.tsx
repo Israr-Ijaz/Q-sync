@@ -1551,7 +1551,7 @@ export default function DoctorDashboardPage() {
           .storage
           .from('signatures')
           .getPublicUrl(`${user.id}.png`);
-        
+
         // We'll optimistically assume it might exist and set it. If it fails to load, the <img> tag could break, 
         // but typically getPublicUrl always returns a string, so we'll just check if it's there.
         // Actually, without checking if the file exists, getPublicUrl will return a 404 URL. 
@@ -1560,7 +1560,7 @@ export default function DoctorDashboardPage() {
         const { data: files } = await supabase.storage.from('signatures').list('', {
           search: `${user.id}.png`
         });
-        
+
         if (!cancelled && files && files.length > 0) {
           setSignatureImageUrl(signatureData.publicUrl);
         }
@@ -1815,154 +1815,154 @@ export default function DoctorDashboardPage() {
 
 
 
-    <div className="flex min-h-full flex-col gap-6 print:hidden">
-      {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/20 to-teal-500/10">
-              <HeartPulse className="h-4 w-4 text-emerald-400" strokeWidth={1.75} />
-            </span>
-            <h1 className="text-xl font-semibold tracking-tight text-slate-100">
-              Rapid Rx Command Center
-            </h1>
+      <div className="flex min-h-full flex-col gap-6 print:hidden">
+        {/* Page header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/20 to-teal-500/10">
+                <HeartPulse className="h-4 w-4 text-emerald-400" strokeWidth={1.75} />
+              </span>
+              <h1 className="text-xl font-semibold tracking-tight text-slate-100">
+                Rapid Rx Command Center
+              </h1>
+            </div>
+            <p className="pl-10 text-sm text-slate-500">
+              AI-assisted prescription engine — live consultation view.
+            </p>
           </div>
-          <p className="pl-10 text-sm text-slate-500">
-            AI-assisted prescription engine — live consultation view.
-          </p>
+          <SessionClock />
         </div>
-        <SessionClock />
-      </div>
 
-      {/* Accent rule */}
-      <div className="h-px bg-gradient-to-r from-emerald-500/20 via-slate-800/60 to-transparent" />
+        {/* Accent rule */}
+        <div className="h-px bg-gradient-to-r from-emerald-500/20 via-slate-800/60 to-transparent" />
 
-      {/* Loading skeleton */}
-      {isLoading ? (
-        <div className="flex flex-1 items-center justify-center py-24">
-          <div className="flex flex-col items-center gap-4 text-slate-500">
-            <Loader2 className="h-7 w-7 animate-spin text-emerald-500/60" />
-            <p className="text-sm">Connecting to queue&hellip;</p>
+        {/* Loading skeleton */}
+        {isLoading ? (
+          <div className="flex flex-1 items-center justify-center py-24">
+            <div className="flex flex-col items-center gap-4 text-slate-500">
+              <Loader2 className="h-7 w-7 animate-spin text-emerald-500/60" />
+              <p className="text-sm">Connecting to queue&hellip;</p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <AnimatePresence mode="wait">
-          {!currentToken ? (
-            <EmptyState key="empty-state" />
-          ) : (
-            <motion.div
-              key={`active-${currentToken.id}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.99 }}
-              transition={{ duration: 0.4 }}
-              className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12"
-            >
-              {/* ── Left column: Patient Panel (4 cols) ── */}
-              <div className="flex flex-col gap-4 lg:col-span-4">
-                <AnimatePresence mode="wait">
-                  <PatientCard key={currentToken.id} token={currentToken} />
-                </AnimatePresence>
-                <VitalsPanel patientName={currentToken.patient_name} />
-              </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            {!currentToken ? (
+              <EmptyState key="empty-state" />
+            ) : (
+              <motion.div
+                key={`active-${currentToken.id}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, scale: 0.99 }}
+                transition={{ duration: 0.4 }}
+                className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12"
+              >
+                {/* ── Left column: Patient Panel (4 cols) ── */}
+                <div className="flex flex-col gap-4 lg:col-span-4">
+                  <AnimatePresence mode="wait">
+                    <PatientCard key={currentToken.id} token={currentToken} />
+                  </AnimatePresence>
+                  <VitalsPanel patientName={currentToken.patient_name} />
+                </div>
 
-              {/* ── Right column: Rx Engine (8 cols) ── */}
-              <div className="lg:col-span-8">
-                {isProActive ? (
-                  <>
-                    {/* Save Template Modal — rendered at this level so it overlays correctly */}
-                    <SaveTemplateModal
-                      isOpen={showSaveModal}
-                      isSaving={isSavingTemplate}
-                      onClose={() => setShowSaveModal(false)}
-                      onSave={handleSaveTemplate}
-                    />
-                    <RxEngine
-                      token={currentToken}
-                      medications={medications}
-                      selectedAdvice={selectedAdvice}
-                      notes={notes}
-                      activeProtocol={activeProtocol}
-                      isSending={isSending}
-                      isCompleting={isCompleting}
-                      successMsg={rxSuccessMsg}
-                      onProtocolSelect={handleProtocolSelect}
-                      onAddMed={handleAddMed}
-                      onDeleteMed={handleDeleteMed}
-                      onChangeMed={handleChangeMed}
-                      onToggleAdvice={handleToggleAdvice}
-                      onNotesChange={setNotes}
-                      onSendWhatsApp={handleSendWhatsApp}
-                      onComplete={handleComplete}
-                      onPrintPdf={handlePrintPdf}
-                      rxTemplates={rxTemplates}
-                      templatesLoading={templatesLoading}
-                      onApplyTemplate={handleApplyTemplate}
-                      onSaveTemplateClick={() => setShowSaveModal(true)}
-                      isSavingTemplate={isSavingTemplate}
-                    />
-                  </>
-                ) : (
-                  // ── Pro Gate ──
-                  <div
-                    id="rx-engine-pro-gate"
-                    className={cn(
-                      'flex flex-col items-center justify-center gap-5 rounded-3xl',
-                      'border border-rose-500/20',
-                      'bg-slate-900/60 backdrop-blur-2xl',
-                      'px-8 py-16 text-center',
-                      'shadow-[0_0_50px_rgba(225,29,72,0.06),0_0_0_1px_rgba(255,255,255,0.03)]',
-                      'min-h-[420px]',
-                    )}
-                  >
-                    {/* Lock icon with glow */}
-                    <div className="relative flex h-20 w-20 items-center justify-center">
-                      <div className="absolute inset-0 rounded-full bg-rose-500/15 blur-2xl" />
-                      <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-rose-500/20 bg-slate-800/80">
-                        <Lock className="h-9 w-9 text-rose-400" strokeWidth={1.5} />
-                      </div>
-                    </div>
-
-                    {/* Copy */}
-                    <div className="space-y-2">
-                      <h2 className="text-xl font-bold tracking-tight text-slate-100">
-                        Rapid Rx Engine
-                      </h2>
-                      <p className="text-sm text-slate-400">
-                        The AI-assisted prescription builder is a Pro feature.
-                      </p>
-                    </div>
-
-                    {/* Badge */}
-                    <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-4 py-1.5 text-sm font-semibold text-rose-400">
-                      <Lock className="h-3.5 w-3.5" strokeWidth={2} />
-                      Pro Feature
-                    </span>
-
-                    {/* CTA */}
-                    <a
-                      id="rx-gate-cta-btn"
-                      href="https://wa.me/923000000000?text=I%20need%20to%20renew%20my%20Opedox%20Pro%20subscription"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                {/* ── Right column: Rx Engine (8 cols) ── */}
+                <div className="lg:col-span-8">
+                  {isProActive ? (
+                    <>
+                      {/* Save Template Modal — rendered at this level so it overlays correctly */}
+                      <SaveTemplateModal
+                        isOpen={showSaveModal}
+                        isSaving={isSavingTemplate}
+                        onClose={() => setShowSaveModal(false)}
+                        onSave={handleSaveTemplate}
+                      />
+                      <RxEngine
+                        token={currentToken}
+                        medications={medications}
+                        selectedAdvice={selectedAdvice}
+                        notes={notes}
+                        activeProtocol={activeProtocol}
+                        isSending={isSending}
+                        isCompleting={isCompleting}
+                        successMsg={rxSuccessMsg}
+                        onProtocolSelect={handleProtocolSelect}
+                        onAddMed={handleAddMed}
+                        onDeleteMed={handleDeleteMed}
+                        onChangeMed={handleChangeMed}
+                        onToggleAdvice={handleToggleAdvice}
+                        onNotesChange={setNotes}
+                        onSendWhatsApp={handleSendWhatsApp}
+                        onComplete={handleComplete}
+                        onPrintPdf={handlePrintPdf}
+                        rxTemplates={rxTemplates}
+                        templatesLoading={templatesLoading}
+                        onApplyTemplate={handleApplyTemplate}
+                        onSaveTemplateClick={() => setShowSaveModal(true)}
+                        isSavingTemplate={isSavingTemplate}
+                      />
+                    </>
+                  ) : (
+                    // ── Pro Gate ──
+                    <div
+                      id="rx-engine-pro-gate"
                       className={cn(
-                        'mt-2 rounded-xl px-5 py-2.5 text-sm font-bold',
-                        'bg-gradient-to-r from-rose-600 to-red-600 text-white',
-                        'shadow-md hover:shadow-rose-500/20 hover:from-rose-500 hover:to-red-500',
-                        'transition-all duration-150 hover:scale-[1.03] active:scale-100',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60',
+                        'flex flex-col items-center justify-center gap-5 rounded-3xl',
+                        'border border-rose-500/20',
+                        'bg-slate-900/60 backdrop-blur-2xl',
+                        'px-8 py-16 text-center',
+                        'shadow-[0_0_50px_rgba(225,29,72,0.06),0_0_0_1px_rgba(255,255,255,0.03)]',
+                        'min-h-[420px]',
                       )}
                     >
-                      Upgrade to Pro
-                    </a>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
-    </div>
+                      {/* Lock icon with glow */}
+                      <div className="relative flex h-20 w-20 items-center justify-center">
+                        <div className="absolute inset-0 rounded-full bg-rose-500/15 blur-2xl" />
+                        <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-rose-500/20 bg-slate-800/80">
+                          <Lock className="h-9 w-9 text-rose-400" strokeWidth={1.5} />
+                        </div>
+                      </div>
+
+                      {/* Copy */}
+                      <div className="space-y-2">
+                        <h2 className="text-xl font-bold tracking-tight text-slate-100">
+                          Rapid Rx Engine
+                        </h2>
+                        <p className="text-sm text-slate-400">
+                          The AI-assisted prescription builder is a Pro feature.
+                        </p>
+                      </div>
+
+                      {/* Badge */}
+                      <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-4 py-1.5 text-sm font-semibold text-rose-400">
+                        <Lock className="h-3.5 w-3.5" strokeWidth={2} />
+                        Pro Feature
+                      </span>
+
+                      {/* CTA */}
+                      <a
+                        id="rx-gate-cta-btn"
+                        href="https://wa.me/923000000000?text=I%20need%20to%20renew%20my%20Opedox%20Pro%20subscription"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          'mt-2 rounded-xl px-5 py-2.5 text-sm font-bold',
+                          'bg-gradient-to-r from-rose-600 to-red-600 text-white',
+                          'shadow-md hover:shadow-rose-500/20 hover:from-rose-500 hover:to-red-500',
+                          'transition-all duration-150 hover:scale-[1.03] active:scale-100',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60',
+                        )}
+                      >
+                        Upgrade to Pro
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
+      </div>
     </>
   );
 }

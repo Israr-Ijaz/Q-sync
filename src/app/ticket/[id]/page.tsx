@@ -209,7 +209,7 @@ function PaymentProcessingCard({ ticket }: { ticket: TicketData }) {
   const waText = encodeURIComponent(
     `Hello, here is my payment screenshot for Patient: ${ticket.patientName}`
   );
-  const waUrl = ticket.whatsappNumber 
+  const waUrl = ticket.whatsappNumber
     ? `https://wa.me/${ticket.whatsappNumber.replace(/[^0-9]/g, '')}?text=${waText}`
     : '#';
 
@@ -237,12 +237,12 @@ function PaymentProcessingCard({ ticket }: { ticket: TicketData }) {
             <span className="text-sm text-zinc-400">Account Title</span>
             <span className="text-sm font-semibold text-white">{ticket.accountTitle || 'N/A'}</span>
           </div>
-          
+
           <div className="pt-2">
             <span className="text-xs text-zinc-500 block mb-1">Account Number</span>
             <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-2.5">
               <span className="font-mono text-white tracking-wider">{ticket.accountNumber || 'N/A'}</span>
-              <button 
+              <button
                 onClick={handleCopy}
                 className="p-1.5 hover:bg-white/10 rounded-md transition-colors"
               >
@@ -281,8 +281,8 @@ function PaymentStatusBadge({
     mode === 'cash'
       ? '✅ Payment Verified (Cash)'
       : mode === 'online_transfer'
-      ? '✅ Payment Verified (Online)'
-      : '⏳ Awaiting Payment Verification';
+        ? '✅ Payment Verified (Online)'
+        : '⏳ Awaiting Payment Verification';
 
   return (
     <motion.div
@@ -441,7 +441,7 @@ export default function TicketPage({ params }: PageProps) {
   // 3. Clinic-level Queue Sync — catches updates to other tokens so peopleAhead updates live.
   useEffect(() => {
     if (!ticket?.clinicId || !ticket?.doctorId) return;
-    
+
     const channel = supabase
       .channel(`live-queue-${ticket.clinicId}-${ticket.doctorId}`)
       .on(
@@ -451,7 +451,7 @@ export default function TicketPage({ params }: PageProps) {
           // Another token was updated. Let's recalculate our position if we're still waiting.
           const current = ticketRef.current;
           if (!current || (current.status !== 'waiting' && current.status !== 'almost')) return;
-          
+
           const { count, error: countError } = await supabase
             .from('tokens')
             .select('*', { count: 'exact', head: true })
@@ -459,10 +459,10 @@ export default function TicketPage({ params }: PageProps) {
             .eq('doctor_id', current.doctorId)
             .eq('status', 'waiting')
             .lt('token_number', current.rawTokenNumber);
-            
+
           const realPeopleAhead = countError ? 0 : (count ?? 0);
           const { averageMinutes } = await getDoctorAverageConsultationTime(current.doctorId);
-          
+
           setTicket((prev) =>
             prev
               ? { ...prev, peopleAhead: realPeopleAhead, estimatedMinutes: realPeopleAhead * averageMinutes }
@@ -471,7 +471,7 @@ export default function TicketPage({ params }: PageProps) {
         }
       )
       .subscribe();
-      
+
     return () => { supabase.removeChannel(channel); };
   }, [ticket?.clinicId, ticket?.doctorId, supabase]);
 
@@ -529,7 +529,7 @@ export default function TicketPage({ params }: PageProps) {
               onClick={() => setIsCalledAlert(false)}
             >
               <motion.div
-                animate={{ 
+                animate={{
                   boxShadow: ['0 0 0px 0px rgba(52, 211, 153, 0.8)', '0 0 0px 20px rgba(52, 211, 153, 0)', '0 0 0px 0px rgba(52, 211, 153, 0)'],
                   scale: [1, 1.02, 1]
                 }}
@@ -543,7 +543,7 @@ export default function TicketPage({ params }: PageProps) {
                 <p className="text-emerald-100 text-lg mb-8 leading-relaxed">
                   Please proceed to the Doctor's room now.
                 </p>
-                <button 
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsCalledAlert(false);
