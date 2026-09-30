@@ -44,7 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Staff Roster", href: "/dashboard/admin/staff", icon: UserCog, roles: ['admin'] },
   { label: "Queue", href: "/dashboard/queue", icon: Users },
   { label: "Prescriptions", href: "/dashboard/prescriptions", icon: FileText, pro: true },
-  { label: "Patients", href: "/dashboard/patients", icon: FolderHeart },
+  { label: "Patients", href: "/dashboard/patients", icon: FolderHeart, roles: ['owner', 'doctor', 'admin'] },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

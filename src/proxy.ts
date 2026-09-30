@@ -4,16 +4,50 @@ import { NextRequest, NextResponse } from 'next/server';
 // ─── Role → canonical dashboard path ────────────────────────────────────────
 const ROLE_PATHS: Record<string, string> = {
   admin: '/dashboard/admin/staff',
+  owner: '/dashboard/admin/staff',
   doctor: '/dashboard/doctor',
   receptionist: '/dashboard/receptionist',
 };
 
-// ─── Role → path prefix allowed to visit ────────────────────────────────────
-// Admin can visit any /dashboard/admin/** sub-route, and /dashboard/doctor
+// ─── Shared routes accessible by multiple roles ───────────────────────────────
+// These prefixes are checked for ALL roles before role-specific ones.
+// /dashboard/patients is intentionally EXCLUDED from the receptionist list.
+const SHARED_ROUTES_ALL_ROLES = [
+  '/dashboard/queue',
+  '/dashboard/settings',
+  '/dashboard/prescriptions',
+];
+
+const SHARED_ROUTES_CLINICAL = [
+  // Accessible by admin, owner, and doctor — NOT receptionist
+  '/dashboard/patients',
+];
+
+// ─── Role → path prefixes allowed to visit ───────────────────────────────────
 const ROLE_PREFIXES: Record<string, string[]> = {
-  admin: ['/dashboard/admin', '/dashboard/doctor'],
-  doctor: ['/dashboard/doctor'],
-  receptionist: ['/dashboard/receptionist'],
+  admin: [
+    '/dashboard/admin',
+    '/dashboard/doctor',
+    ...SHARED_ROUTES_ALL_ROLES,
+    ...SHARED_ROUTES_CLINICAL,
+  ],
+  owner: [
+    '/dashboard/admin',
+    '/dashboard/doctor',
+    ...SHARED_ROUTES_ALL_ROLES,
+    ...SHARED_ROUTES_CLINICAL,
+  ],
+  doctor: [
+    '/dashboard/doctor',
+    ...SHARED_ROUTES_ALL_ROLES,
+    ...SHARED_ROUTES_CLINICAL,
+  ],
+  receptionist: [
+    '/dashboard/receptionist',
+    ...SHARED_ROUTES_ALL_ROLES,
+    // Note: SHARED_ROUTES_CLINICAL is deliberately omitted — receptionists
+    // are blocked from /dashboard/patients at both the route guard and page level.
+  ],
 };
 
 /**

@@ -29,6 +29,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [broadcastDismissed, setBroadcastDismissed] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [paywallDismissed, setPaywallDismissed] = useState(false);
 
   // ── Dynamic user / clinic data ──────────────────────────────────────────
   const [userName, setUserName] = useState<string | null>(null);
@@ -97,6 +98,34 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     setMobileOpen(false);
   }, [pathname]);
 
+  // ── Paywall Mobile/Dismiss helpers ───────────────────────────────────────
+  // Restore paywall dismissed state from sessionStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const dismissed = sessionStorage.getItem("opedox-paywall-dismissed");
+      if (dismissed === "true") {
+        setPaywallDismissed(true);
+      }
+    }
+  }, []);
+
+  const handleDismissPaywall = useCallback(() => {
+    setPaywallDismissed(true);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("opedox-paywall-dismissed", "true");
+    }
+  }, []);
+
+  // Auto-dismiss paywall banner after 9 seconds
+  useEffect(() => {
+    if (!subLoading && !isUserLoading && !isProActive && (userRole === "owner" || userRole === "admin") && !paywallDismissed) {
+      const timer = setTimeout(() => {
+        handleDismissPaywall();
+      }, 9000);
+      return () => clearTimeout(timer);
+    }
+  }, [subLoading, isUserLoading, isProActive, userRole, paywallDismissed, handleDismissPaywall]);
+
   // Lock body scroll when mobile drawer is open
   useEffect(() => {
     if (mobileOpen) {
@@ -142,53 +171,59 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       )}
 
       {/* ── Subscription Paywall Banner ── */}
-      {!subLoading && !isProActive && (
+      {!subLoading && !isUserLoading && !isProActive && (userRole === "owner" || userRole === "admin") && !paywallDismissed && (
         <div
           id="paywall-banner"
           role="alert"
           aria-live="polite"
           className={cn(
-            "relative z-50 flex w-full shrink-0 items-center justify-between gap-4",
-            "bg-gradient-to-r from-rose-700 via-red-600 to-rose-700",
+            "relative z-50 flex w-full shrink-0 flex-col sm:flex-row items-start sm:items-center justify-between gap-4",
+            "bg-slate-900 border-b border-indigo-500/30",
             "px-4 py-3 sm:px-6",
-            "shadow-[0_4px_24px_rgba(225,29,72,0.45)]",
-            "border-b border-red-500/40",
+            "shadow-[0_4px_24px_rgba(79,70,229,0.15)]",
+            "animate-in slide-in-from-top fade-in duration-300"
           )}
         >
           {/* Animated pulse ring behind icon */}
           <div className="flex items-start gap-3 sm:items-center">
             <span className="relative flex shrink-0 items-center justify-center">
-              <span className="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-white/20 opacity-60" />
+              <span className="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-indigo-400/20 opacity-60" />
               <AlertTriangle
-                className="relative h-5 w-5 text-white drop-shadow"
+                className="relative h-5 w-5 text-indigo-400 drop-shadow"
                 strokeWidth={2.2}
                 aria-hidden="true"
               />
             </span>
-            <p className="text-sm font-medium leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]">
-              <span className="font-bold">⚠️ Your Pro Plan has expired.</span>{" "}
-              You are missing automated patient re-bookings and your advanced
-              features are locked.{" "}
-              <span className="font-semibold">Upgrade now to restore full access.</span>
+            <p className="text-sm font-medium leading-snug text-slate-300">
+              Whoops! Your free period is up. We haven't built the billing page yet, so enjoy the free Pro features while our developer chugs coffee and writes code. ☕
             </p>
           </div>
 
-          {/* CTA */}
-          <a
-            id="paywall-cta-btn"
-            href="https://wa.me/923000000000?text=I%20need%20to%20renew%20my%20Opedox%20Pro%20subscription"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "shrink-0 whitespace-nowrap rounded-xl px-4 py-2",
-              "bg-white text-red-700 text-sm font-bold",
-              "shadow-md hover:shadow-lg",
-              "transition-all duration-150 hover:bg-red-50 hover:scale-[1.03] active:scale-100",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-red-600",
-            )}
-          >
-            Contact Sales to Upgrade
-          </a>
+          {/* Actions */}
+          <div className="flex shrink-0 items-center gap-3 w-full sm:w-auto mt-1 sm:mt-0">
+            <a
+              id="paywall-cta-btn"
+              href="https://wa.me/923334861007?text=I%20need%20to%20renew%20my%20Opedox%20Pro%20subscription"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "shrink-0 whitespace-nowrap rounded-xl px-4 py-2 flex-1 sm:flex-none text-center",
+                "bg-indigo-500/10 text-indigo-400 text-sm font-bold border border-indigo-500/20",
+                "shadow-sm hover:shadow-md",
+                "transition-all duration-150 hover:bg-indigo-500/20 hover:scale-[1.02] active:scale-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900",
+              )}
+            >
+              Contact Sales to Upgrade
+            </a>
+            <button
+              onClick={handleDismissPaywall}
+              aria-label="Dismiss banner"
+              className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
 

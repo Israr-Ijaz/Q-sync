@@ -92,6 +92,31 @@ export async function joinQueue(
 
   console.log('[joinQueue] Inserting token:', { clinic_id: clinic.id, doctor_id: doctorId, token_display: tokenDisplay });
 
+  // ── 8.5 Upsert Patient into `patients` table ──────────────────────────────
+  if (phone) {
+    const { data: existingPatient } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('phone', phone)
+      .eq('clinic_id', clinic.id)
+      .maybeSingle();
+
+    if (existingPatient) {
+      await supabase
+        .from('patients')
+        .update({ name })
+        .eq('id', existingPatient.id);
+    } else {
+      await supabase
+        .from('patients')
+        .insert({
+          clinic_id: clinic.id,
+          phone: phone,
+          name: name
+        });
+    }
+  }
+
   // ── 9. Insert the token ───────────────────────────────────────────────────────
   const initialStatus = paymentMethod === 'online' ? 'pending_payment' : 'pending_arrival';
 
@@ -178,6 +203,31 @@ export async function createWalkInTokenAction(payload: {
   const tokenDisplay = `${prefix}-${String(nextNumber).padStart(2, '0')}`;
 
   console.log('[createWalkInTokenAction] Inserting:', { clinicId, doctorId, nextNumber, tokenDisplay });
+
+  // ── Upsert Patient into `patients` table ──────────────────────────────────
+  if (patientPhone) {
+    const { data: existingPatient } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('phone', patientPhone)
+      .eq('clinic_id', clinicId)
+      .maybeSingle();
+
+    if (existingPatient) {
+      await supabase
+        .from('patients')
+        .update({ name: patientName.trim() })
+        .eq('id', existingPatient.id);
+    } else {
+      await supabase
+        .from('patients')
+        .insert({
+          clinic_id: clinicId,
+          phone: patientPhone,
+          name: patientName.trim()
+        });
+    }
+  }
 
   // ── Insert the token ────────────────────────────────────────────────────────
   const { data: token, error: insertError } = await supabase

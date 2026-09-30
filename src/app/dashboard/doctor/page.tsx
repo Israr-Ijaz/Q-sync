@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/utils/supabase/client';
 import PremiumPrescription from '@/components/PremiumPrescription';
+import VitalsInput from '@/components/clinical/VitalsInput';
 import {
   Stethoscope,
   User,
@@ -18,8 +19,6 @@ import {
   Trash2,
   Plus,
   MessageSquare,
-  Thermometer,
-  Weight,
   Send,
   Zap,
   ClipboardList,
@@ -251,55 +250,7 @@ function EmptyState() {
   );
 }
 
-// ─── Vitals Panel ─────────────────────────────────────────────────────────────
-function VitalsPanel({ patientName }: { patientName: string }) {
-  const vitals = [
-    { icon: HeartPulse, label: 'Blood Pressure', value: '120 / 80', unit: 'mmHg', color: '#f87171' },
-    { icon: Thermometer, label: 'Temperature', value: '98.6', unit: '°F', color: '#f59e0b' },
-    { icon: Weight, label: 'Weight', value: '70', unit: 'kg', color: '#06b6d4' },
-    { icon: ClipboardList, label: 'Chief Complaint', value: 'General OPD', unit: '', color: '#a78bfa' },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-2xl border border-white/[0.07] bg-slate-900/60 p-4 backdrop-blur-xl"
-    >
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
-          Vitals &amp; Quick Notes
-        </span>
-        <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-500">
-          Demo
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {vitals.map(({ icon: Icon, label, value, unit, color }) => (
-          <div
-            key={label}
-            className="flex items-center gap-2.5 rounded-xl border border-slate-800/50 bg-slate-950/40 px-3 py-2.5"
-          >
-            <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: `${color}18`, border: `1px solid ${color}28` }}
-            >
-              <Icon className="h-3.5 w-3.5" style={{ color }} strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-600 truncate">{label}</p>
-              <p className="text-xs font-semibold text-slate-200">
-                {value}
-                {unit && <span className="ml-0.5 text-[10px] font-normal text-slate-500">{unit}</span>}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
+// VitalsPanel removed — replaced by VitalsInput component
 
 // ─── Patient Card (no complete button — moved to ActionFooter) ───────────────
 function PatientCard({ token }: { token: ConsultationToken }) {
@@ -1424,7 +1375,7 @@ function RxEngine({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DoctorDashboardPage() {
   // ── Pro subscription gate ────────────────────────────────────────────────
-  const { isProActive } = useSubscription();
+  const { isProActive, isLoading: subLoading } = useSubscription();
 
   // ── Core token state ────────────────────────────────────────────────────────
   const [currentToken, setCurrentToken] = useState<ConsultationToken | null>(null);
@@ -1863,12 +1814,19 @@ export default function DoctorDashboardPage() {
                   <AnimatePresence mode="wait">
                     <PatientCard key={currentToken.id} token={currentToken} />
                   </AnimatePresence>
-                  <VitalsPanel patientName={currentToken.patient_name} />
+                  <VitalsInput
+                    tokenId={currentToken.id}
+                    isEditable={true}
+                  />
                 </div>
 
                 {/* ── Right column: Rx Engine (8 cols) ── */}
                 <div className="lg:col-span-8">
-                  {isProActive ? (
+                  {subLoading ? (
+                    <div className="flex h-[420px] w-full items-center justify-center rounded-3xl border border-slate-800 bg-slate-900/50">
+                      <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+                    </div>
+                  ) : isProActive ? (
                     <>
                       {/* Save Template Modal — rendered at this level so it overlays correctly */}
                       <SaveTemplateModal
@@ -1908,52 +1866,52 @@ export default function DoctorDashboardPage() {
                       id="rx-engine-pro-gate"
                       className={cn(
                         'flex flex-col items-center justify-center gap-5 rounded-3xl',
-                        'border border-rose-500/20',
+                        'border border-indigo-500/20',
                         'bg-slate-900/60 backdrop-blur-2xl',
                         'px-8 py-16 text-center',
-                        'shadow-[0_0_50px_rgba(225,29,72,0.06),0_0_0_1px_rgba(255,255,255,0.03)]',
+                        'shadow-[0_0_50px_rgba(79,70,229,0.06),0_0_0_1px_rgba(255,255,255,0.03)]',
                         'min-h-[420px]',
                       )}
                     >
                       {/* Lock icon with glow */}
                       <div className="relative flex h-20 w-20 items-center justify-center">
-                        <div className="absolute inset-0 rounded-full bg-rose-500/15 blur-2xl" />
-                        <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-rose-500/20 bg-slate-800/80">
-                          <Lock className="h-9 w-9 text-rose-400" strokeWidth={1.5} />
+                        <div className="absolute inset-0 rounded-full bg-indigo-500/15 blur-2xl" />
+                        <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-indigo-500/20 bg-slate-800/80">
+                          <Lock className="h-9 w-9 text-indigo-400" strokeWidth={1.5} />
                         </div>
                       </div>
 
                       {/* Copy */}
-                      <div className="space-y-2">
+                      <div className="space-y-2 max-w-sm">
                         <h2 className="text-xl font-bold tracking-tight text-slate-100">
                           Rapid Rx Engine
                         </h2>
                         <p className="text-sm text-slate-400">
-                          The AI-assisted prescription builder is a Pro feature.
+                          This AI magic is a premium feature. Drop our developer a quick WhatsApp message if you want to test it out!
                         </p>
                       </div>
 
                       {/* Badge */}
-                      <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-4 py-1.5 text-sm font-semibold text-rose-400">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm font-semibold text-indigo-400">
                         <Lock className="h-3.5 w-3.5" strokeWidth={2} />
-                        Pro Feature
+                        Premium Feature
                       </span>
 
                       {/* CTA */}
                       <a
                         id="rx-gate-cta-btn"
-                        href="https://wa.me/923000000000?text=I%20need%20to%20renew%20my%20Opedox%20Pro%20subscription"
+                        href="https://wa.me/923334861007?text=Hi!%20I'd%20like%20to%20test%20out%20the%20Rapid%20Rx%20Engine%20on%20Opedox."
                         target="_blank"
                         rel="noopener noreferrer"
                         className={cn(
                           'mt-2 rounded-xl px-5 py-2.5 text-sm font-bold',
-                          'bg-gradient-to-r from-rose-600 to-red-600 text-white',
-                          'shadow-md hover:shadow-rose-500/20 hover:from-rose-500 hover:to-red-500',
+                          'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
+                          'shadow-sm hover:shadow-md hover:bg-indigo-500/20',
                           'transition-all duration-150 hover:scale-[1.03] active:scale-100',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60',
                         )}
                       >
-                        Upgrade to Pro
+                        Chat with Founder to Unlock
                       </a>
                     </div>
                   )}

@@ -71,7 +71,7 @@ export default function SetupIncompletePage() {
           </button>
 
           <a
-            href="https://wa.me/923000000000?text=My%20Opedox%20signup%20didn%27t%20complete.%20Can%20you%20help%3F"
+            href="https://wa.me/923334861007?text=My%20Opedox%20signup%20didn%27t%20complete.%20Can%20you%20help%3F"
             target="_blank"
             rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-700/50 bg-slate-800/50 px-6 py-3 text-sm font-medium text-slate-400 transition-all duration-200 hover:border-slate-600/70 hover:bg-slate-700/60 hover:text-slate-200"

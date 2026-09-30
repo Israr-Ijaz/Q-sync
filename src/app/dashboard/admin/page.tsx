@@ -154,7 +154,7 @@ function Skeleton({ className }: { className?: string }) {
 // Page
 // ---------------------------------------------------------------------------
 export default function AdminOverviewPage() {
-  const { isProActive } = useSubscription();
+  const { isProActive, isLoading: subLoading } = useSubscription();
 
   // Stable Supabase client — created once for both queries + Realtime
   const supabase = createClient();
@@ -254,11 +254,13 @@ export default function AdminOverviewPage() {
         .gte("created_at", start)
         .lte("created_at", end),
 
-      // 2. Live queue (real-time, range-independent)
+      // 2. Active queue (filtered by date range to prevent stale tokens)
       supabase
         .from("tokens")
         .select("id", { count: "exact", head: true })
-        .in("status", ["waiting", "in_consultation"]),
+        .in("status", ["waiting", "in_consultation"])
+        .gte("created_at", start)
+        .lte("created_at", end),
 
       // 3. Token rows for fee + wait-time math — no status/type filter
       //    Fetches ALL token types (walk-in, QR, etc.) for the range
@@ -521,18 +523,20 @@ export default function AdminOverviewPage() {
           <div className="flex items-start justify-between">
             <p className="text-sm font-medium text-slate-400">Cash in Drawer</p>
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5">
-              {isProActive ? (
+              {subLoading ? (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+              ) : isProActive ? (
                 <Banknote className="h-5 w-5 text-emerald-400" strokeWidth={1.75} />
               ) : (
-                <Lock className="h-5 w-5 text-rose-400" strokeWidth={1.75} />
+                <Lock className="h-5 w-5 text-indigo-400" strokeWidth={1.75} />
               )}
             </span>
           </div>
 
-          <div className={isProActive ? undefined : "pointer-events-none select-none blur-md"}>
+          <div className={subLoading || isProActive ? undefined : "pointer-events-none select-none blur-[4px]"}>
             <div className="flex items-end gap-3">
               <span className="text-4xl font-bold tracking-tight text-white">
-                {isLoadingKpis ? (
+                {isLoadingKpis || subLoading ? (
                   <Skeleton className="h-9 w-28" />
                 ) : (
                   formatCurrency(cashDrawer)
@@ -540,7 +544,7 @@ export default function AdminOverviewPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              {isLoadingKpis ? (
+              {isLoadingKpis || subLoading ? (
                 <Skeleton className="h-3 w-32" />
               ) : (
                 `${onlineCount} paid via Online Transfer`
@@ -548,12 +552,17 @@ export default function AdminOverviewPage() {
             </p>
           </div>
 
-          {!isProActive && (
+          {!subLoading && !isProActive && (
             <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-1.5 pb-5 pt-2">
-              <Lock className="h-4 w-4 text-rose-400" strokeWidth={2} />
-              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-rose-400">
-                Unlock with Pro
-              </span>
+              <Lock className="h-4 w-4 text-indigo-400" strokeWidth={2} />
+              <a
+                href="https://wa.me/923334861007?text=Hi!%20I'd%20like%20to%20unlock%20the%20Cash%20Drawer%20widget%20on%20Opedox."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+              >
+                Chat with Founder to Unlock
+              </a>
             </div>
           )}
         </div>

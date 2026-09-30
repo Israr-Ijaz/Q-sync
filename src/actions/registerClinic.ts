@@ -171,15 +171,15 @@ export async function verifyOtpAndSetupClinic(
       .maybeSingle()
 
     if (!existingSub) {
-      const freeExpiry = new Date()
-      freeExpiry.setFullYear(freeExpiry.getFullYear() + 1)
+      const trialExpiry = new Date()
+      trialExpiry.setDate(trialExpiry.getDate() + 14)
 
       const { error: subError } = await supabaseAdmin
         .from('clinic_subscriptions')
         .insert({
           clinic_slug: clinic.slug,
-          plan_tier: 'free',
-          expires_at: freeExpiry.toISOString(),
+          plan_tier: 'pro',
+          expires_at: trialExpiry.toISOString(),
           is_beta_tester: false,
         })
 

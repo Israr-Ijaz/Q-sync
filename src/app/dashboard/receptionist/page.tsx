@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { useSubscription } from "@/lib/subscription-context";
 import { transferPatientAction, createWalkInTokenAction } from "@/actions/patient";
 import { updateTokenStatusAction } from "@/actions/queue";
+import VitalsInput from "@/components/clinical/VitalsInput";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -624,6 +625,7 @@ export default function ReceptionistDashboardPage() {
     const [clinicId, setClinicId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [expandedTokenId, setExpandedTokenId] = useState<string | null>(null);
+    const [triageTokenId, setTriageTokenId] = useState<string | null>(null);
 
     const tokensRef = useRef<Token[]>([]);
     tokensRef.current = tokens;
@@ -754,6 +756,16 @@ export default function ReceptionistDashboardPage() {
     const waitingQueue = activeTokens.filter((t) => t.status === "waiting" || t.status === "pending_payment" || t.status === "pending_arrival");
     const calledToken = activeTokens.find((t) => t.status === "in_consultation") ?? null;
     const completedToday = activeTokens.filter((t) => t.status === "completed");
+
+    // When the queue changes, default triageTokenId to the top waiting patient
+    useEffect(() => {
+        const top = waitingQueue.find((t) => t.status === "waiting") ?? waitingQueue[0] ?? null;
+        setTriageTokenId((prev) => {
+            // Don't override if user has manually selected a patient still in the queue
+            if (prev && waitingQueue.find((t) => t.id === prev)) return prev;
+            return top?.id ?? null;
+        });
+    }, [waitingQueue]);
 
     useEffect(() => {
         if (waitingQueue.length > 0) {
@@ -1024,6 +1036,47 @@ export default function ReceptionistDashboardPage() {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+                        </div>
+
+                        {/* Triage Vitals Panel */}
+                        <div className="shrink-0">
+                            <div className="mb-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
+                                        <Zap className="h-3.5 w-3.5" strokeWidth={1.75} />
+                                    </div>
+                                    <h2 className="text-sm font-bold uppercase tracking-wider text-violet-400">Front-Desk Triage</h2>
+                                </div>
+                                {/* Token selector */}
+                                {waitingQueue.length > 0 && (
+                                    <select
+                                        id="triage-token-select"
+                                        value={triageTokenId ?? ""}
+                                        onChange={(e) => setTriageTokenId(e.target.value || null)}
+                                        className="rounded-xl border border-slate-700/60 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-200 outline-none focus:border-violet-500/50 transition-colors"
+                                    >
+                                        <option value="" className="bg-slate-900">Select patient…</option>
+                                        {waitingQueue.map((t) => (
+                                            <option key={t.id} value={t.id} className="bg-slate-900">
+                                                {formatTokenNumber(t, doctors)} — {t.patient_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                            {triageTokenId ? (
+                                <VitalsInput
+                                    key={triageTokenId}
+                                    tokenId={triageTokenId}
+                                    isEditable={true}
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-700/40 bg-slate-800/30 py-6 text-center">
+                                    <Zap className="h-6 w-6 text-slate-600" strokeWidth={1.5} />
+                                    <p className="text-xs text-slate-500">No patient selected for triage</p>
+                                    <p className="text-[10px] text-slate-600">Add a patient to the queue first</p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Completed today */}
